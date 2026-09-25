@@ -91,22 +91,17 @@ public class StayFlowDbContext : DbContext, IApplicationDbContext
         // === TENANT IZOLASYONU (multi-tenancy) ===
         // Fail-closed: HotelId bilinmiyorsa (or. HttpContext yok, JWT'de claim yok)
         // hicbir satir donmez. "Bilmiyorsam hepsini goster" degil, "bilmiyorsam hicbirini gosterme".
-        modelBuilder.Entity<AppUser>().HasQueryFilter(e =>
-            _currentTenantService.HotelId.HasValue && e.HotelId == _currentTenantService.HotelId.Value);
-        modelBuilder.Entity<RoomType>().HasQueryFilter(e =>
-            _currentTenantService.HotelId.HasValue && e.HotelId == _currentTenantService.HotelId.Value);
-        modelBuilder.Entity<Room>().HasQueryFilter(e =>
-            _currentTenantService.HotelId.HasValue && e.HotelId == _currentTenantService.HotelId.Value);
-        modelBuilder.Entity<SeasonalPrice>().HasQueryFilter(e =>
-            _currentTenantService.HotelId.HasValue && e.HotelId == _currentTenantService.HotelId.Value);
-        modelBuilder.Entity<Guest>().HasQueryFilter(e =>
-            _currentTenantService.HotelId.HasValue && e.HotelId == _currentTenantService.HotelId.Value);
-        modelBuilder.Entity<Reservation>().HasQueryFilter(e =>
-            _currentTenantService.HotelId.HasValue && e.HotelId == _currentTenantService.HotelId.Value);
-        modelBuilder.Entity<RoomNight>().HasQueryFilter(e =>
-            _currentTenantService.HotelId.HasValue && e.HotelId == _currentTenantService.HotelId.Value);
-        modelBuilder.Entity<Payment>().HasQueryFilter(e =>
-            _currentTenantService.HotelId.HasValue && e.HotelId == _currentTenantService.HotelId.Value);
+        // HotelId null ise "e.HotelId == null" hicbir satirla eslesmez (HotelId kolonu null olamaz).
+        // Not: "HotelId.HasValue && e.HotelId == HotelId.Value" seklinde yazmak ISE YARAMAZ -
+        // EF parametreyi hazirlarken .Value'yu yine de okur ve exception firlatir (bkz. TenantIsolationTests).
+        modelBuilder.Entity<AppUser>().HasQueryFilter(e => e.HotelId == _currentTenantService.HotelId);
+        modelBuilder.Entity<RoomType>().HasQueryFilter(e => e.HotelId == _currentTenantService.HotelId);
+        modelBuilder.Entity<Room>().HasQueryFilter(e => e.HotelId == _currentTenantService.HotelId);
+        modelBuilder.Entity<SeasonalPrice>().HasQueryFilter(e => e.HotelId == _currentTenantService.HotelId);
+        modelBuilder.Entity<Guest>().HasQueryFilter(e => e.HotelId == _currentTenantService.HotelId);
+        modelBuilder.Entity<Reservation>().HasQueryFilter(e => e.HotelId == _currentTenantService.HotelId);
+        modelBuilder.Entity<RoomNight>().HasQueryFilter(e => e.HotelId == _currentTenantService.HotelId);
+        modelBuilder.Entity<Payment>().HasQueryFilter(e => e.HotelId == _currentTenantService.HotelId);
     }
 
     /// <summary>
