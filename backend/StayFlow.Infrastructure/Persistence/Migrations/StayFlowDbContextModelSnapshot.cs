@@ -187,6 +187,9 @@ namespace StayFlow.Infrastructure.Persistence.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<int>("GuestCount")
+                        .HasColumnType("int");
+
                     b.Property<Guid>("GuestId")
                         .HasColumnType("uniqueidentifier");
 

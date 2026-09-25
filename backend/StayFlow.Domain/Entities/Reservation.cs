@@ -23,6 +23,7 @@ public class Reservation : ITenantEntity
 
     public DateOnly CheckIn { get; set; }
     public DateOnly CheckOut { get; set; }
+    public int GuestCount { get; set; } = 1;
     public ReservationStatus Status { get; set; } = ReservationStatus.Pending;
     public decimal TotalPrice { get; set; }
 

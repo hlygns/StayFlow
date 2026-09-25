@@ -1,0 +1,77 @@
+using Microsoft.EntityFrameworkCore;
+using StayFlow.Application.Common.Interfaces;
+
+namespace StayFlow.Application.Reservations;
+
+public record AvailableRoomDto(Guid Id, string RoomNumber, int Floor);
+
+public record RoomTypeAvailabilityDto(
+    Guid RoomTypeId,
+    string RoomTypeName,
+    int Capacity,
+    int Nights,
+    decimal TotalPrice,
+    int AvailableRooms,
+    List<AvailableRoomDto> Rooms);
+
+public class AvailabilityService
+{
+    private readonly IApplicationDbContext _db;
+    private readonly TimeProvider _timeProvider;
+
+    public AvailabilityService(IApplicationDbContext db, TimeProvider timeProvider)
+    {
+        _db = db;
+        _timeProvider = timeProvider;
+    }
+
+    /// <summary>
+    /// Verilen tarihlerde bos odasi olan oda tiplerini, toplam konaklama fiyatiyla dondurur.
+    /// "Bos oda" = aktif ve [checkIn, checkOut) araligindaki hicbir gecesi RoomNights'ta olmayan oda.
+    /// </summary>
+    public async Task<List<RoomTypeAvailabilityDto>> SearchAsync(
+        DateOnly checkIn, DateOnly checkOut, int? guests, CancellationToken ct = default)
+    {
+        StayDates.Validate(checkIn, checkOut, DateOnly.FromDateTime(_timeProvider.GetUtcNow().UtcDateTime));
+
+        // Tarih cakisma mantigi tek satira indi: RoomNight tablosu sayesinde "iki aralik
+        // cakisiyor mu?" yerine "bu araliktaki gecelerden biri dolu mu?" diye soruyoruz.
+        var bookedRoomIds = _db.RoomNights
+            .Where(rn => rn.Date >= checkIn && rn.Date < checkOut)
+            .Select(rn => rn.RoomId);
+
+        var roomTypes = await _db.RoomTypes
+            .Where(rt => guests == null || rt.Capacity >= guests)
+            .Select(rt => new
+            {
+                rt.Id,
+                rt.Name,
+                rt.Capacity,
+                rt.BasePrice,
+                Rooms = rt.Rooms
+                    .Where(r => r.IsActive && !bookedRoomIds.Contains(r.Id))
+                    .OrderBy(r => r.RoomNumber)
+                    .Select(r => new AvailableRoomDto(r.Id, r.RoomNumber, r.Floor))
+                    .ToList(),
+                SeasonalPrices = rt.SeasonalPrices
+                    .Where(sp => sp.StartDate < checkOut && sp.EndDate >= checkIn)
+                    .ToList()
+            })
+            .ToListAsync(ct);
+
+        var nights = checkOut.DayNumber - checkIn.DayNumber;
+
+        return roomTypes
+            .Where(rt => rt.Rooms.Count > 0)
+            .Select(rt => new RoomTypeAvailabilityDto(
+                rt.Id,
+                rt.Name,
+                rt.Capacity,
+                nights,
+                PriceCalculator.CalculateTotal(rt.BasePrice, rt.SeasonalPrices, checkIn, checkOut),
+                rt.Rooms.Count,
+                rt.Rooms))
+            .OrderBy(rt => rt.TotalPrice)
+            .ToList();
+    }
+}
