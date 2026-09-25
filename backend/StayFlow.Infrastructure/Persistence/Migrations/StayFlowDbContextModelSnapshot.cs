@@ -57,8 +57,10 @@ namespace StayFlow.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("HotelId", "Email")
+                    b.HasIndex("Email")
                         .IsUnique();
+
+                    b.HasIndex("HotelId");
 
                     b.ToTable("Users");
                 });
@@ -126,9 +128,12 @@ namespace StayFlow.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("Slug")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("nvarchar(450)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("Slug")
+                        .IsUnique();
 
                     b.ToTable("Hotels");
                 });
@@ -229,16 +234,17 @@ namespace StayFlow.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("RoomNumber")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("nvarchar(450)");
 
                     b.Property<Guid>("RoomTypeId")
                         .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("HotelId");
-
                     b.HasIndex("RoomTypeId");
+
+                    b.HasIndex("HotelId", "RoomNumber")
+                        .IsUnique();
 
                     b.ToTable("Rooms");
                 });

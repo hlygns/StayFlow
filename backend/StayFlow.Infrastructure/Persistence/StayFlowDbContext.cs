@@ -1,10 +1,11 @@
 using Microsoft.EntityFrameworkCore;
 using StayFlow.Application.Common.Interfaces;
+using StayFlow.Domain.Common;
 using StayFlow.Domain.Entities;
 
 namespace StayFlow.Infrastructure.Persistence;
 
-public class StayFlowDbContext : DbContext
+public class StayFlowDbContext : DbContext, IApplicationDbContext
 {
     private readonly ICurrentTenantService _currentTenantService;
 
@@ -35,9 +36,19 @@ public class StayFlowDbContext : DbContext
             .HasIndex(rn => new { rn.RoomId, rn.Date })
             .IsUnique();
 
-        // Ayni otelde ayni e-posta ile iki kullanici olamaz (farkli otellerde ayni e-posta olabilir).
+        // Giris ekraninda otel secilmiyor (sadece e-posta + sifre), bu yuzden e-posta
+        // tum sistemde tekil olmali - yoksa "bu e-posta hangi otelin kullanicisi?" belirsiz kalir.
         modelBuilder.Entity<AppUser>()
-            .HasIndex(u => new { u.HotelId, u.Email })
+            .HasIndex(u => u.Email)
+            .IsUnique();
+
+        modelBuilder.Entity<Hotel>()
+            .HasIndex(h => h.Slug)
+            .IsUnique();
+
+        // Ayni otelde iki tane "101" numarali oda olamaz.
+        modelBuilder.Entity<Room>()
+            .HasIndex(r => new { r.HotelId, r.RoomNumber })
             .IsUnique();
 
         // SeasonalPrice'ta baslangic bitisten once olmali.
@@ -96,5 +107,25 @@ public class StayFlowDbContext : DbContext
             _currentTenantService.HotelId.HasValue && e.HotelId == _currentTenantService.HotelId.Value);
         modelBuilder.Entity<Payment>().HasQueryFilter(e =>
             _currentTenantService.HotelId.HasValue && e.HotelId == _currentTenantService.HotelId.Value);
+    }
+
+    /// <summary>
+    /// Yeni eklenen her tenant entity'sine giris yapmis kullanicinin HotelId'sini otomatik yazar.
+    /// Servis kodunda "HotelId = ..." yazmayi unutmak, kaydi yanlis otele (Guid.Empty) baglamak
+    /// demek olurdu - bu sorumlulugu tek bir yere topluyoruz.
+    /// </summary>
+    public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    {
+        foreach (var entry in ChangeTracker.Entries<ITenantEntity>().Where(e => e.State == EntityState.Added))
+        {
+            if (entry.Entity.HotelId == Guid.Empty)
+            {
+                entry.Entity.HotelId = _currentTenantService.HotelId
+                    ?? throw new InvalidOperationException(
+                        $"{entry.Entity.GetType().Name} kaydedilemedi: HotelId belirtilmedi ve istekte tenant bilgisi yok.");
+            }
+        }
+
+        return base.SaveChangesAsync(cancellationToken);
     }
 }
