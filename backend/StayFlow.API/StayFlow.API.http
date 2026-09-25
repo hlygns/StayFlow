@@ -1,6 +1,93 @@
-@StayFlow.API_HostAddress = http://localhost:5182
+# VS Code (REST Client eklentisi) veya Visual Studio'da istekleri tek tikla gondermek icin.
+# Sirayla calistirin: register -> token'i asagidaki @token'a yapistirin -> digerleri.
 
-GET {{StayFlow.API_HostAddress}}/weatherforecast/
-Accept: application/json
+@host = http://localhost:5182/api
+@token = BURAYA_ACCESS_TOKEN
+@roomTypeId = BURAYA_ODA_TIPI_ID
+@roomId = BURAYA_ODA_ID
+@reservationId = BURAYA_REZERVASYON_ID
 
-###
+### Otel kaydi (otel + sahibi)
+POST {{host}}/auth/register
+Content-Type: application/json
+
+{
+  "hotelName": "Güneş Butik Otel",
+  "city": "Antalya",
+  "ownerFullName": "Hülya Güneş",
+  "ownerEmail": "owner@gunes.test",
+  "password": "Parola123!"
+}
+
+### Giris
+POST {{host}}/auth/login
+Content-Type: application/json
+
+{ "email": "owner@gunes.test", "password": "Parola123!" }
+
+### Token yenileme
+POST {{host}}/auth/refresh
+Content-Type: application/json
+
+{ "accessToken": "{{token}}", "refreshToken": "BURAYA_REFRESH_TOKEN" }
+
+### Otel bilgisi
+GET {{host}}/hotel
+Authorization: Bearer {{token}}
+
+### Resepsiyon kullanicisi ekle (sadece Owner)
+POST {{host}}/users
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "fullName": "Resepsiyon", "email": "resepsiyon@gunes.test", "password": "Parola123!", "role": "Reception" }
+
+### Oda tipi olustur
+POST {{host}}/room-types
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "name": "Deniz Manzarali", "description": "Balkonlu", "capacity": 3, "basePrice": 2000 }
+
+### Sezon fiyati
+POST {{host}}/room-types/{{roomTypeId}}/seasonal-prices
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "startDate": "2027-06-01", "endDate": "2027-08-31", "pricePerNight": 3000 }
+
+### Oda olustur
+POST {{host}}/rooms
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "roomNumber": "201", "floor": 2, "roomTypeId": "{{roomTypeId}}" }
+
+### Musaitlik
+GET {{host}}/availability?checkIn=2027-07-10&checkOut=2027-07-13&guests=2
+Authorization: Bearer {{token}}
+
+### Rezervasyon
+POST {{host}}/reservations
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "roomId": "{{roomId}}",
+  "checkIn": "2027-07-10",
+  "checkOut": "2027-07-13",
+  "guestCount": 2,
+  "guest": { "fullName": "Ayşe Yılmaz", "email": "ayse@test.com", "phone": "5551112233" }
+}
+
+### Rezervasyon listesi (takvim araligi)
+GET {{host}}/reservations?from=2027-07-01&to=2027-08-01
+Authorization: Bearer {{token}}
+
+### Onayla
+POST {{host}}/reservations/{{reservationId}}/confirm
+Authorization: Bearer {{token}}
+
+### Iptal
+POST {{host}}/reservations/{{reservationId}}/cancel
+Authorization: Bearer {{token}}

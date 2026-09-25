@@ -60,6 +60,11 @@ builder.Services
     });
 builder.Services.AddAuthorization();
 
+// React yonetim paneli (2. hafta) farkli bir porttan istek atacak. Izinli adresler config'ten gelir.
+var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
+builder.Services.AddCors(options => options.AddDefaultPolicy(policy =>
+    policy.WithOrigins(allowedOrigins).AllowAnyHeader().AllowAnyMethod()));
+
 var app = builder.Build();
 
 app.UseExceptionHandler();
@@ -72,6 +77,7 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
+app.UseCors();
 app.UseAuthentication();
 app.UseAuthorization();
 
