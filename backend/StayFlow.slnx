@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="StayFlow.API/StayFlow.API.csproj" />
+  <Project Path="StayFlow.Application/StayFlow.Application.csproj" />
+  <Project Path="StayFlow.Domain/StayFlow.Domain.csproj" />
+  <Project Path="StayFlow.Infrastructure/StayFlow.Infrastructure.csproj" />
+  <Project Path="StayFlow.Tests/StayFlow.Tests.csproj" />
+</Solution>
