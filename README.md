@@ -49,8 +49,8 @@ backend/
 ├── StayFlow.Domain          → Entity'ler (Hotel, Room, Reservation, RoomNight...) ve enum'lar
 ├── StayFlow.Application     → Servisler, DTO'lar, iş kuralları, IApplicationDbContext
 ├── StayFlow.Infrastructure  → EF Core DbContext, migration'lar, şifre hashleme
-├── StayFlow.API             → Controller'lar, JWT, hata yönetimi (ProblemDetails)
-└── StayFlow.Tests           → xUnit + SQLite in-memory testler
+├── StayFlow.API             → Controller'lar, JWT, hata yönetimi (ProblemDetails), deneme sınırı
+└── StayFlow.Tests           → xUnit: servis testleri + WebApplicationFactory ile HTTP entegrasyon testleri (SQLite in-memory)
 admin-panel/
 ├── src/api                  → Tipli API istemcisi, token yenileme, DTO tipleri
 ├── src/auth                 → Oturum context'i, korumalı rotalar
@@ -89,7 +89,7 @@ dotnet ef database update -p StayFlow.Infrastructure -s StayFlow.API
 dotnet run --project StayFlow.API --launch-profile http
 ```
 
-API `http://localhost:5182` adresinde açılır. Örnek istekler [StayFlow.API.http](backend/StayFlow.API/StayFlow.API.http) dosyasındadır.
+API `http://localhost:5182` adresinde açılır. Etkileşimli API dokümantasyonu `http://localhost:5182/scalar` adresindedir. Örnek istekler [StayFlow.API.http](backend/StayFlow.API/StayFlow.API.http) dosyasındadır.
 
 > `appsettings.Development.json` içindeki JWT anahtarı yalnızca yerel geliştirme içindir.
 > Canlı ortamda anahtar `Jwt__SecretKey` ortam değişkeniyle verilmelidir (en az 32 karakter).
@@ -108,7 +108,7 @@ Panel `http://localhost:5173` adresinde açılır; `/api` istekleri Vite üzerin
 Testler:
 
 ```bash
-cd backend && dotnet test          # 27 test
+cd backend && dotnet test          # 44 test (servis + HTTP entegrasyon)
 cd admin-panel && npm test         # 15 test
 python scripts/smoke_test.py       # çalışan sisteme karşı uçtan uca test (Docker: localhost:8080)
 ```

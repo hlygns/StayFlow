@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Scalar.AspNetCore;
 using StayFlow.API.Infrastructure;
 using StayFlow.API.Services;
 using StayFlow.Application;
@@ -16,8 +17,22 @@ var builder = WebApplication.CreateBuilder(args);
 // Enum'lar JSON'da sayi yerine isim olarak gorunsun: "role": "Owner" (0 degil).
 builder.Services.AddControllers()
     .AddJsonOptions(o => o.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter()));
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
-builder.Services.AddOpenApi();
+// OpenAPI dokumani: /openapi/v1.json. Belgeye "Bearer" guvenlik semasi ekleniyor ki
+// dokumantasyon sayfasindan JWT ile istek atilabilsin.
+builder.Services.AddOpenApi(options => options.AddDocumentTransformer((document, _, _) =>
+{
+    document.Info.Title = "StayFlow API";
+    document.Info.Description = "Butik oteller için çok kiracılı rezervasyon API'si. Önce /api/auth/login ile token alın.";
+    document.Components ??= new();
+    document.Components.SecuritySchemes ??= new Dictionary<string, Microsoft.OpenApi.IOpenApiSecurityScheme>();
+    document.Components.SecuritySchemes["Bearer"] = new Microsoft.OpenApi.OpenApiSecurityScheme
+    {
+        Type = Microsoft.OpenApi.SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT"
+    };
+    return Task.CompletedTask;
+}));
 
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
@@ -107,6 +122,8 @@ app.UseExceptionHandler();
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
+    // Etkilesimli API dokumantasyonu: http://localhost:5182/scalar
+    app.MapScalarApiReference(options => options.WithTitle("StayFlow API").AddPreferredSecuritySchemes("Bearer"));
 }
 
 // HTTPS yonlendirmesi sadece gelistirmede: canlida HTTPS'i Nginx yonetiyor.
