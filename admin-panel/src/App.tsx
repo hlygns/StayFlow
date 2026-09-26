@@ -1,5 +1,5 @@
 import { Navigate, Route, Routes } from 'react-router'
-import { RequireAuth } from './auth/RequireAuth'
+import { RequireAuth, RequireOwner } from './auth/RequireAuth'
 import { Layout } from './components/Layout'
 import { LoginPage } from './pages/auth/LoginPage'
 import { RegisterPage } from './pages/auth/RegisterPage'
@@ -9,6 +9,8 @@ import { NewReservationPage } from './pages/reservations/NewReservationPage'
 import { ReservationsPage } from './pages/reservations/ReservationsPage'
 import { RoomTypesPage } from './pages/room-types/RoomTypesPage'
 import { RoomsPage } from './pages/rooms/RoomsPage'
+import { SettingsPage } from './pages/settings/SettingsPage'
+import { StaffPage } from './pages/staff/StaffPage'
 
 export default function App() {
   return (
@@ -28,6 +30,22 @@ export default function App() {
         <Route path="reservations/new" element={<NewReservationPage />} />
         <Route path="room-types" element={<RoomTypesPage />} />
         <Route path="rooms" element={<RoomsPage />} />
+        <Route
+          path="staff"
+          element={
+            <RequireOwner>
+              <StaffPage />
+            </RequireOwner>
+          }
+        />
+        <Route
+          path="settings"
+          element={
+            <RequireOwner>
+              <SettingsPage />
+            </RequireOwner>
+          }
+        />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

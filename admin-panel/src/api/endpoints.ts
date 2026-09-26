@@ -32,7 +32,8 @@ export const authApi = {
   logout: () => api.post<void>('/auth/logout'),
 }
 
-export type HotelInput = Omit<Hotel, 'id' | 'slug'>
+// Bos e-posta null gitmeli: backend'deki [EmailAddress] "" degerini gecersiz sayar, null'i kabul eder.
+export type HotelInput = Omit<Hotel, 'id' | 'slug' | 'email'> & { email: string | null }
 
 export const hotelApi = {
   get: () => api.get<Hotel>('/hotel'),
