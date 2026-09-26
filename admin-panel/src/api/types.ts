@@ -16,10 +16,10 @@ export interface User {
   hotelId: string
 }
 
+/** Refresh token govdede yok: backend onu httpOnly cookie olarak gonderir. */
 export interface AuthResponse {
   accessToken: string
   accessTokenExpiresAt: string
-  refreshToken: string
   user: User
 }
 

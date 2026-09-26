@@ -38,6 +38,11 @@ if (Encoding.UTF8.GetByteCount(jwtSettings.SecretKey) < 32)
 {
     throw new InvalidOperationException("Jwt:SecretKey tanimli degil veya 32 byte'tan kisa.");
 }
+// .env.example'daki ornek deger 32 karakterden uzun: kopyalanip degistirilmeden canliya cikmasin.
+if (jwtSettings.SecretKey.StartsWith("buraya-", StringComparison.Ordinal))
+{
+    throw new InvalidOperationException("Jwt:SecretKey hala .env.example'daki ornek deger. 'openssl rand -base64 48' ile yeni bir anahtar uretin.");
+}
 
 builder.Services.AddSingleton(jwtSettings);
 builder.Services.AddSingleton<IJwtTokenService, JwtTokenService>();
@@ -63,6 +68,7 @@ builder.Services
         };
     });
 builder.Services.AddAuthorization();
+builder.Services.AddStayFlowRateLimiting(builder.Configuration);
 
 // React yonetim paneli (2. hafta) farkli bir porttan istek atacak. Izinli adresler config'ten gelir.
 var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
@@ -110,6 +116,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseCors();
+app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 

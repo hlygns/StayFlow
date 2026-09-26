@@ -1,34 +1,25 @@
 import type { AuthResponse } from './types'
 
-// Oturum (token'lar + kullanici) localStorage'da tutulur: sayfa yenilenince oturum kapanmasin.
-// Not: XSS'e karsi daha guvenlisi refresh token'i httpOnly cookie'de tutmaktir - Faz 2'de
-// backend cookie destegi eklenirse buraya tasinacak.
-
-const STORAGE_KEY = 'stayflow.session'
+// Oturum (access token + kullanici) SADECE bellekte tutulur - localStorage'a yazilmaz.
+// Refresh token ise backend'in koydugu httpOnly cookie'de: JavaScript ona hic erisemez.
+// Boylece sayfada bir XSS acigi olsa bile uzun omurlu bir token calinamaz. Bedeli: sayfa
+// yenilenince access token kaybolur; AuthProvider acilista cookie ile sessizce yenisini alir.
 
 type Listener = (session: AuthResponse | null) => void
+
+let current: AuthResponse | null = null
 const listeners = new Set<Listener>()
 
 export function getSession(): AuthResponse | null {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    return raw ? (JSON.parse(raw) as AuthResponse) : null
-  } catch {
-    return null
-  }
+  return current
 }
 
 export function setSession(session: AuthResponse | null) {
-  try {
-    if (session) localStorage.setItem(STORAGE_KEY, JSON.stringify(session))
-    else localStorage.removeItem(STORAGE_KEY)
-  } catch {
-    // localStorage kapali olabilir (gizli mod vb.) - oturum sadece bu sekmede yasar
-  }
+  current = session
   listeners.forEach((listener) => listener(session))
 }
 
-/** AuthContext, API istemcisinin oturumu kapatmasini (refresh basarisiz) buradan duyar. */
+/** AuthContext, API istemcisinin oturumu yenilemesini ya da kapatmasini buradan duyar. */
 export function onSessionChange(listener: Listener) {
   listeners.add(listener)
   return () => {

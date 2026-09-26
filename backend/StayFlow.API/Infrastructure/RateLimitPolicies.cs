@@ -1,0 +1,47 @@
+using System.Threading.RateLimiting;
+using Microsoft.AspNetCore.Mvc;
+
+namespace StayFlow.API.Infrastructure;
+
+public static class RateLimitPolicies
+{
+    public const string Auth = "auth";
+
+    /// <summary>
+    /// Giris ve kayit uclari icin IP basina dakikada N istek (varsayilan 20). Sifre deneme-yanilma
+    /// (brute force) ve toplu sahte hesap acmayi yavaslatir. Asilinca 429 + ProblemDetails doner.
+    /// </summary>
+    public static IServiceCollection AddStayFlowRateLimiting(this IServiceCollection services, IConfiguration configuration)
+    {
+        var permitPerMinute = configuration.GetValue("RateLimiting:AuthPermitPerMinute", 20);
+
+        return services.AddRateLimiter(options =>
+        {
+            options.AddPolicy(Auth, httpContext => RateLimitPartition.GetFixedWindowLimiter(
+                // UseForwardedHeaders sayesinde bu, Nginx arkasinda da istemcinin gercek IP'si
+                partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                factory: _ => new FixedWindowRateLimiterOptions
+                {
+                    PermitLimit = permitPerMinute,
+                    Window = TimeSpan.FromMinutes(1),
+                    QueueLimit = 0
+                }));
+
+            options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+            options.OnRejected = async (context, ct) =>
+            {
+                if (context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter))
+                {
+                    context.HttpContext.Response.Headers.RetryAfter = ((int)retryAfter.TotalSeconds).ToString();
+                }
+
+                await context.HttpContext.Response.WriteAsJsonAsync(new ProblemDetails
+                {
+                    Status = StatusCodes.Status429TooManyRequests,
+                    Title = "Cok fazla deneme",
+                    Detail = "Çok fazla deneme yapıldı. Lütfen bir dakika sonra tekrar deneyin."
+                }, ct);
+            };
+        });
+    }
+}

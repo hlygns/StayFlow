@@ -24,7 +24,7 @@ Her otel kendi hesabıyla sisteme kaydolur; odalarını, fiyatlarını ve rezerv
 - **Takvim:** odalar × geceler tablosu. Bloğa tıklayınca rezervasyon detayı (onayla / iptal et) açılır, boş hücreye tıklayınca o oda ve tarih için rezervasyon başlar.
 - **Yeni rezervasyon:** tarih ve kişi sayısı girilince müsait oda tipleri toplam fiyatla listelenir. Siz formu doldururken oda başkasına satılırsa backend 409 döner; panel müsaitliği yenileyip yeni oda seçtirir.
 - **Oda tipleri, sezon fiyatları, odalar, personel, otel ayarları.** Resepsiyon rolü oda ve fiyat ekranlarını salt okunur görür; personel ve ayarlar menüsü ona hiç görünmez.
-- **Oturum:** access token süresi dolunca istek otomatik olarak yenilenip tekrarlanır. Aynı anda birden çok istek 401 alırsa tek bir refresh yapılır; backend refresh token'ı her kullanımda değiştirdiği için paralel refresh'ler birbirini geçersiz kılardı.
+- **Oturum:** Sayfa yenilenince oturum cookie ile sessizce geri yüklenir. Access token süresi dolunca istek otomatik olarak yenilenip tekrarlanır. Aynı anda birden çok istek 401 alırsa tek bir refresh yapılır; backend refresh token'ı her kullanımda değiştirdiği için paralel refresh'ler birbirini geçersiz kılardı.
 
 ## Öne çıkan mühendislik problemi: çifte rezervasyon
 
@@ -60,7 +60,8 @@ admin-panel/
 
 - **Multi-tenancy:** Her tenant entity'si `ITenantEntity` uygular. EF Core global query filter'ları, sorguları JWT'deki `hotelId` claim'ine göre otomatik filtreler. Tenant bilgisi yoksa hiçbir satır dönmez (fail-closed). Yeni kayıtlara `HotelId` otomatik atanır.
 - **Başka otelin verisine erişim** 404 döner: filtre kaydı tamamen gizler, var olduğu bile sızmaz.
-- **Kimlik doğrulama:** Kısa ömürlü access token (15 dk) ve refresh token (7 gün). Refresh token'lar veritabanında hash'lenmiş tutulur ve her kullanımda yenilenir (rotation).
+- **Kimlik doğrulama:** Kısa ömürlü access token (15 dk, yalnızca bellekte) ve refresh token (7 gün, `HttpOnly` + `Secure` + `SameSite=Strict` cookie). JavaScript refresh token'a hiç erişemez; bu yüzden bir XSS açığı onu çalamaz. Refresh token'lar veritabanında hash'lenmiş tutulur ve her kullanımda yenilenir (rotation). Aynı tarayıcıdaki iki sekme aynı anda yenileme yaparsa biri oturumdan düşmesin diye, bir önceki token 30 saniye daha kabul edilir.
+- **Kaba kuvvet koruması:** Giriş ve kayıt uçlarında IP başına dakikada 20 deneme sınırı vardır (aşılırsa `429`). Uygulama `.env.example`'daki örnek JWT anahtarıyla başlamayı reddeder.
 - **Roller:** `Owner` (otel sahibi: oda, fiyat, personel yönetimi) ve `Reception` (rezervasyon işlemleri).
 
 ## Çalıştırma

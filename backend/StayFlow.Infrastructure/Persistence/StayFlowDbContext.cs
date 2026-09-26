@@ -46,6 +46,10 @@ public class StayFlowDbContext : DbContext, IApplicationDbContext
             .HasIndex(h => h.Slug)
             .IsUnique();
 
+        // Refresh istegi kullaniciyi token hash'inden bulur - tum tabloyu taramasin.
+        modelBuilder.Entity<AppUser>().HasIndex(u => u.RefreshToken);
+        modelBuilder.Entity<AppUser>().HasIndex(u => u.PreviousRefreshToken);
+
         // Ayni otelde iki tane "101" numarali oda olamaz.
         modelBuilder.Entity<Room>()
             .HasIndex(r => new { r.HotelId, r.RoomNumber })

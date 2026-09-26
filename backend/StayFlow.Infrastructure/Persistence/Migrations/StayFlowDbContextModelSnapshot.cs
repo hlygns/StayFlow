@@ -46,10 +46,16 @@ namespace StayFlow.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("PreviousRefreshToken")
+                        .HasColumnType("nvarchar(450)");
+
                     b.Property<string>("RefreshToken")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("nvarchar(450)");
 
                     b.Property<DateTime?>("RefreshTokenExpiresAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("RefreshTokenRotatedAt")
                         .HasColumnType("datetime2");
 
                     b.Property<int>("Role")
@@ -61,6 +67,10 @@ namespace StayFlow.Infrastructure.Persistence.Migrations
                         .IsUnique();
 
                     b.HasIndex("HotelId");
+
+                    b.HasIndex("PreviousRefreshToken");
+
+                    b.HasIndex("RefreshToken");
 
                     b.ToTable("Users");
                 });

@@ -1,8 +1,10 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { authApi, type RegisterInput } from '../api/endpoints'
+import { refreshTokens } from '../api/client'
 import { getSession, onSessionChange, setSession } from '../api/session'
 import type { AuthResponse, User } from '../api/types'
+import { PageLoader } from '../components/ui/Spinner'
 
 interface AuthContextValue {
   user: User | null
@@ -16,10 +18,18 @@ const AuthContext = createContext<AuthContextValue | null>(null)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSessionState] = useState<AuthResponse | null>(getSession)
+  // Acilista oturum geri yuklenene kadar sayfa cizilmez: aksi halde bir an login ekrani gorunurdu.
+  const [restoring, setRestoring] = useState(() => getSession() === null)
   const queryClient = useQueryClient()
 
   // API istemcisi refresh'te oturumu yenilerse ya da kapatirsa React state'i de guncellensin.
   useEffect(() => onSessionChange(setSessionState), [])
+
+  // Sayfa yenilendi: access token bellekte yok ama refresh cookie varsa oturum devam eder.
+  useEffect(() => {
+    if (!restoring) return
+    void refreshTokens().finally(() => setRestoring(false))
+  }, [restoring])
 
   const login = useCallback(async (email: string, password: string) => {
     setSession(await authApi.login(email, password))
@@ -45,6 +55,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { user, isOwner: user?.role === 'Owner', login, register, logout }
   }, [session, login, register, logout])
 
+  if (restoring) return <PageLoader />
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
 

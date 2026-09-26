@@ -25,27 +25,32 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
+/** Acilistaki oturum geri yukleme istegi (/auth/refresh) cookie olmadigi icin 401 alir. */
+function mockFetch(handler: (url: string) => Response) {
+  const fetchMock = vi.fn(async (url: string) =>
+    url.endsWith('/auth/refresh') ? new Response('{}', { status: 401 }) : handler(url),
+  )
+  vi.stubGlobal('fetch', fetchMock)
+  return fetchMock
+}
+
 describe('LoginPage', () => {
   it('bos formda sunucuya gitmeden hata gosterir', async () => {
-    const fetchMock = vi.fn()
-    vi.stubGlobal('fetch', fetchMock)
+    const fetchMock = mockFetch(() => new Response('{}'))
     renderLogin()
 
-    await userEvent.click(screen.getByRole('button', { name: 'Giriş yap' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Giriş yap' }))
 
     expect(await screen.findByText('Geçerli bir e-posta girin.')).toBeInTheDocument()
     expect(screen.getByText('Şifre gerekli.')).toBeInTheDocument()
-    expect(fetchMock).not.toHaveBeenCalled()
+    expect(fetchMock.mock.calls.some(([url]) => url.endsWith('/auth/login'))).toBe(false)
   })
 
   it('sunucunun hata mesajini gosterir', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async () => new Response(JSON.stringify({ status: 401, detail: 'E-posta veya sifre hatali.' }), { status: 401 })),
-    )
+    mockFetch(() => new Response(JSON.stringify({ status: 401, detail: 'E-posta veya sifre hatali.' }), { status: 401 }))
     renderLogin()
 
-    await userEvent.type(screen.getByLabelText('E-posta'), 'owner@otel.test')
+    await userEvent.type(await screen.findByLabelText('E-posta'), 'owner@otel.test')
     await userEvent.type(screen.getByLabelText('Şifre'), 'yanlis-sifre')
     await userEvent.click(screen.getByRole('button', { name: 'Giriş yap' }))
 
@@ -56,13 +61,12 @@ describe('LoginPage', () => {
     const auth = {
       accessToken: 'a',
       accessTokenExpiresAt: '2030-01-01T00:00:00Z',
-      refreshToken: 'r',
       user: { id: 'u', fullName: 'Hülya Güneş', email: 'owner@otel.test', role: 'Owner', hotelId: 'h' },
     }
-    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(auth), { status: 200 })))
+    mockFetch(() => new Response(JSON.stringify(auth), { status: 200 }))
     renderLogin()
 
-    await userEvent.type(screen.getByLabelText('E-posta'), 'owner@otel.test')
+    await userEvent.type(await screen.findByLabelText('E-posta'), 'owner@otel.test')
     await userEvent.type(screen.getByLabelText('Şifre'), 'Parola123!')
     await userEvent.click(screen.getByRole('button', { name: 'Giriş yap' }))
 

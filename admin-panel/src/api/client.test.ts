@@ -6,7 +6,6 @@ import type { AuthResponse } from './types'
 const session = (token: string): AuthResponse => ({
   accessToken: token,
   accessTokenExpiresAt: '2030-01-01T00:00:00Z',
-  refreshToken: `refresh-${token}`,
   user: { id: 'u1', fullName: 'Test', email: 't@test.com', role: 'Owner', hotelId: 'h1' },
 })
 
@@ -35,9 +34,11 @@ describe('api client', () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(async (url: string, init: RequestInit) => {
-        const auth = (init.headers as Record<string, string>).Authorization
+        const auth = (init.headers as Record<string, string> | undefined)?.Authorization
         calls.push(`${url} ${auth ?? ''}`)
         if (url.endsWith('/auth/refresh')) {
+          // Refresh govdesiz: token httpOnly cookie'de, JS'e hic gorunmez
+          expect(init.body).toBeUndefined()
           await new Promise((resolve) => setTimeout(resolve, 10)) // refresh suruyorken diger istekler de 401 alsin
           return json(200, session('new'))
         }

@@ -16,20 +16,32 @@ public class AuthService
     private readonly IPasswordHasher _passwordHasher;
     private readonly IJwtTokenService _jwtTokenService;
     private readonly JwtSettings _jwtSettings;
+    private readonly TimeProvider _timeProvider;
+
+    /// <summary>
+    /// Yeni token uretildikten sonra eski token'in hala kabul edildigi sure. Iki sekme ayni anda
+    /// yenileme yaparsa ikincisi oturumdan dusmesin diye. Kisa tutuluyor: calinan eski bir token
+    /// bu pencere disinda ise yaramaz.
+    /// </summary>
+    public static readonly TimeSpan RotationGracePeriod = TimeSpan.FromSeconds(30);
 
     public AuthService(
         IApplicationDbContext db,
         IPasswordHasher passwordHasher,
         IJwtTokenService jwtTokenService,
-        JwtSettings jwtSettings)
+        JwtSettings jwtSettings,
+        TimeProvider timeProvider)
     {
         _db = db;
         _passwordHasher = passwordHasher;
         _jwtTokenService = jwtTokenService;
         _jwtSettings = jwtSettings;
+        _timeProvider = timeProvider;
     }
 
-    public async Task<AuthResponse> RegisterHotelAsync(RegisterHotelRequest request, CancellationToken ct = default)
+    private DateTime UtcNow => _timeProvider.GetUtcNow().UtcDateTime;
+
+    public async Task<AuthResult> RegisterHotelAsync(RegisterHotelRequest request, CancellationToken ct = default)
     {
         var email = NormalizeEmail(request.OwnerEmail);
 
@@ -66,7 +78,7 @@ public class AuthService
         return await IssueTokensAsync(owner, ct);
     }
 
-    public async Task<AuthResponse> LoginAsync(LoginRequest request, CancellationToken ct = default)
+    public async Task<AuthResult> LoginAsync(LoginRequest request, CancellationToken ct = default)
     {
         var email = NormalizeEmail(request.Email);
         var user = await _db.Users.IgnoreQueryFilters()
@@ -83,34 +95,51 @@ public class AuthService
         return await IssueTokensAsync(user, ct);
     }
 
-    public async Task<AuthResponse> RefreshAsync(RefreshTokenRequest request, CancellationToken ct = default)
+    /// <summary>
+    /// Refresh token (cookie'den gelir) ile yeni bir access token + yeni bir refresh token uretir.
+    /// Sayfa yenilendiginde de bu cagrilir: access token sadece bellekte tutuldugu icin kaybolur.
+    /// </summary>
+    public async Task<AuthResult> RefreshAsync(string? refreshToken, CancellationToken ct = default)
     {
-        var principal = _jwtTokenService.GetPrincipalFromExpiredToken(request.AccessToken);
-        var userIdClaim = principal?.FindFirst("sub")?.Value;
-
-        if (!Guid.TryParse(userIdClaim, out var userId))
+        if (string.IsNullOrEmpty(refreshToken))
         {
-            throw new UnauthorizedException("Gecersiz token.");
+            throw new UnauthorizedException("Oturum bulunamadi, lutfen giris yapin.");
         }
 
-        var user = await _db.Users.IgnoreQueryFilters().FirstOrDefaultAsync(u => u.Id == userId, ct);
+        var hash = HashToken(refreshToken);
+        var user = await _db.Users.IgnoreQueryFilters()
+            .Include(u => u.Hotel)
+            .FirstOrDefaultAsync(u => u.RefreshToken == hash || u.PreviousRefreshToken == hash, ct);
+
+        var isCurrent = user?.RefreshToken == hash;
+        var isRecentPrevious = user?.PreviousRefreshToken == hash
+            && user.RefreshTokenRotatedAt > UtcNow - RotationGracePeriod;
 
         if (user is null
-            || user.RefreshToken != HashToken(request.RefreshToken)
+            || !(isCurrent || isRecentPrevious)
             || user.RefreshTokenExpiresAt is null
-            || user.RefreshTokenExpiresAt < DateTime.UtcNow)
+            || user.RefreshTokenExpiresAt < UtcNow
+            || !user.Hotel.IsActive)
         {
             throw new UnauthorizedException("Oturum suresi dolmus, lutfen tekrar giris yapin.");
         }
 
-        // Refresh token rotation: her kullanimda yenisi uretilir, eskisi gecersiz olur.
-        // Calinan bir refresh token en fazla bir kere kullanilabilir.
+        // Refresh token rotation: her kullanimda yenisi uretilir, eskisi (kisa tolerans suresi
+        // disinda) gecersiz olur. Calinan bir refresh token pratikte bir kere kullanilabilir.
         return await IssueTokensAsync(user, ct);
     }
 
-    public async Task LogoutAsync(Guid userId, CancellationToken ct = default)
+    /// <summary>Cikis: bu refresh token'i (ve oncekini) gecersiz kilar.</summary>
+    public async Task LogoutAsync(string? refreshToken, CancellationToken ct = default)
     {
-        var user = await _db.Users.IgnoreQueryFilters().FirstOrDefaultAsync(u => u.Id == userId, ct);
+        if (string.IsNullOrEmpty(refreshToken))
+        {
+            return;
+        }
+
+        var hash = HashToken(refreshToken);
+        var user = await _db.Users.IgnoreQueryFilters()
+            .FirstOrDefaultAsync(u => u.RefreshToken == hash || u.PreviousRefreshToken == hash, ct);
         if (user is null)
         {
             return;
@@ -118,25 +147,30 @@ public class AuthService
 
         user.RefreshToken = null;
         user.RefreshTokenExpiresAt = null;
+        user.PreviousRefreshToken = null;
+        user.RefreshTokenRotatedAt = null;
         await _db.SaveChangesAsync(ct);
     }
 
-    private async Task<AuthResponse> IssueTokensAsync(AppUser user, CancellationToken ct)
+    private async Task<AuthResult> IssueTokensAsync(AppUser user, CancellationToken ct)
     {
         var (accessToken, expiresAt) = _jwtTokenService.GenerateAccessToken(user);
         var refreshToken = _jwtTokenService.GenerateRefreshToken();
+        var refreshExpiresAt = UtcNow.AddDays(_jwtSettings.RefreshTokenDays);
 
         // Veritabaninda refresh token'in kendisini degil hash'ini tutuyoruz: DB sizarsa
         // saldirgan bu degerlerle oturum acamaz (sifrelerde yaptigimizin aynisi).
+        user.PreviousRefreshToken = user.RefreshToken;
+        user.RefreshTokenRotatedAt = UtcNow;
         user.RefreshToken = HashToken(refreshToken);
-        user.RefreshTokenExpiresAt = DateTime.UtcNow.AddDays(_jwtSettings.RefreshTokenDays);
+        user.RefreshTokenExpiresAt = refreshExpiresAt;
         await _db.SaveChangesAsync(ct);
 
-        return new AuthResponse(
+        var response = new AuthResponse(
             accessToken,
             expiresAt,
-            refreshToken,
             new UserDto(user.Id, user.FullName, user.Email, user.Role, user.HotelId));
+        return new AuthResult(response, refreshToken, refreshExpiresAt);
     }
 
     private async Task<string> GenerateUniqueSlugAsync(string hotelName, CancellationToken ct)

@@ -23,16 +23,16 @@ public class LoginRequest
     [Required] public string Password { get; set; } = string.Empty;
 }
 
-public class RefreshTokenRequest
-{
-    [Required] public string AccessToken { get; set; } = string.Empty;
-    [Required] public string RefreshToken { get; set; } = string.Empty;
-}
-
 public record UserDto(Guid Id, string FullName, string Email, UserRole Role, Guid HotelId);
 
+/// <summary>
+/// Istemciye donen cevap. Refresh token BURADA YOK: JavaScript'in erisemedigi httpOnly bir cookie
+/// olarak gonderilir (bkz. AuthController). Boylece bir XSS acigi refresh token'i calamaz.
+/// </summary>
 public record AuthResponse(
     string AccessToken,
     DateTime AccessTokenExpiresAt,
-    string RefreshToken,
     UserDto User);
+
+/// <summary>Servisten controller'a: cevap + cookie'ye yazilacak refresh token.</summary>
+public record AuthResult(AuthResponse Response, string RefreshToken, DateTime RefreshTokenExpiresAt);

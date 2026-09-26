@@ -31,17 +31,15 @@ export class ApiError extends Error {
 // yeniledigi icin (rotation) paralel iki refresh, ikincisinin reddedilmesi demek olurdu.
 let refreshInFlight: Promise<boolean> | null = null
 
-async function refreshTokens(): Promise<boolean> {
-  const session = getSession()
-  if (!session) return false
-
+/**
+ * Cookie'deki refresh token ile yeni bir access token alir. Hem 401 sonrasinda hem de
+ * sayfa ilk acildiginda (oturumu geri yuklemek icin) kullanilir.
+ */
+export async function refreshTokens(): Promise<boolean> {
   refreshInFlight ??= (async () => {
     try {
-      const response = await fetch(`${BASE_URL}/auth/refresh`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ accessToken: session.accessToken, refreshToken: session.refreshToken }),
-      })
+      // Govde yok: tarayici httpOnly refresh cookie'sini kendisi ekler (ayni origin).
+      const response = await fetch(`${BASE_URL}/auth/refresh`, { method: 'POST', credentials: 'same-origin' })
       if (!response.ok) {
         setSession(null)
         return false
