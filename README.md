@@ -3,12 +3,27 @@
 Butik oteller ve pansiyonlar için çok kiracılı (multi-tenant) rezervasyon ve misafir yönetim sistemi.
 Her otel kendi hesabıyla sisteme kaydolur; odalarını, fiyatlarını ve rezervasyonlarını yönetir ve yalnızca kendi verisini görür.
 
-> Durum: **1. hafta tamamlandı**: backend çekirdeği (auth, oda/fiyat yönetimi, müsaitlik, rezervasyon) ve testler.
-> Sırada: React + TypeScript yönetim paneli, Docker Compose, CI/CD.
+> Durum: **2. hafta tamamlandı**: backend çekirdeği ve React yönetim paneli.
+> Sırada: Docker Compose, CI/CD, canlı yayın.
+
+![Rezervasyon takvimi](docs/screenshots/calendar.png)
 
 ## Teknolojiler
 
-.NET 10 · ASP.NET Core Web API · EF Core 10 · SQL Server · JWT + refresh token · xUnit
+- **Backend:** .NET 10 · ASP.NET Core Web API · EF Core 10 · SQL Server · JWT + refresh token · xUnit
+- **Yönetim paneli:** React 19 · TypeScript · Vite · Tailwind CSS v4 · TanStack Query · React Router · React Hook Form + Zod · Vitest + Testing Library
+
+## Yönetim paneli
+
+| Genel bakış | Yeni rezervasyon |
+|---|---|
+| ![Genel bakış](docs/screenshots/dashboard.png) | ![Yeni rezervasyon](docs/screenshots/new-reservation.png) |
+
+- **Genel bakış:** bu geceki doluluk, bugünkü giriş/çıkışlar, ödeme bekleyenler ve önümüzdeki 7 gecenin doluluk grafiği.
+- **Takvim:** odalar × geceler tablosu. Bloğa tıklayınca rezervasyon detayı (onayla / iptal et) açılır, boş hücreye tıklayınca o oda ve tarih için rezervasyon başlar.
+- **Yeni rezervasyon:** tarih ve kişi sayısı girilince müsait oda tipleri toplam fiyatla listelenir. Siz formu doldururken oda başkasına satılırsa backend 409 döner; panel müsaitliği yenileyip yeni oda seçtirir.
+- **Oda tipleri, sezon fiyatları, odalar, personel, otel ayarları.** Resepsiyon rolü oda ve fiyat ekranlarını salt okunur görür; personel ve ayarlar menüsü ona hiç görünmez.
+- **Oturum:** access token süresi dolunca istek otomatik olarak yenilenip tekrarlanır. Aynı anda birden çok istek 401 alırsa tek bir refresh yapılır; backend refresh token'ı her kullanımda değiştirdiği için paralel refresh'ler birbirini geçersiz kılardı.
 
 ## Öne çıkan mühendislik problemi: çifte rezervasyon
 
@@ -35,6 +50,11 @@ backend/
 ├── StayFlow.Infrastructure  → EF Core DbContext, migration'lar, şifre hashleme
 ├── StayFlow.API             → Controller'lar, JWT, hata yönetimi (ProblemDetails)
 └── StayFlow.Tests           → xUnit + SQLite in-memory testler
+admin-panel/
+├── src/api                  → Tipli API istemcisi, token yenileme, DTO tipleri
+├── src/auth                 → Oturum context'i, korumalı rotalar
+├── src/components           → Layout ve paylaşılan UI bileşenleri
+└── src/pages                → Ekranlar (takvim, rezervasyonlar, odalar...)
 ```
 
 - **Multi-tenancy:** Her tenant entity'si `ITenantEntity` uygular. EF Core global query filter'ları, sorguları JWT'deki `hotelId` claim'ine göre otomatik filtreler. Tenant bilgisi yoksa hiçbir satır dönmez (fail-closed). Yeni kayıtlara `HotelId` otomatik atanır.
@@ -58,11 +78,22 @@ API `http://localhost:5182` adresinde açılır. Örnek istekler [StayFlow.API.h
 > `appsettings.Development.json` içindeki JWT anahtarı yalnızca yerel geliştirme içindir.
 > Canlı ortamda anahtar `Jwt__SecretKey` ortam değişkeniyle verilmelidir (en az 32 karakter).
 
+Yönetim paneli (Node.js 20+; API çalışırken ayrı bir terminalde):
+
+```bash
+cd admin-panel
+npm install
+npm run dev
+```
+
+Panel `http://localhost:5173` adresinde açılır; `/api` istekleri Vite üzerinden API'ye yönlendirilir.
+"Ücretsiz kaydolun" bağlantısıyla bir otel oluşturup başlayabilirsiniz.
+
 Testler:
 
 ```bash
-cd backend
-dotnet test
+cd backend && dotnet test          # 27 test
+cd admin-panel && npm test         # 15 test
 ```
 
 ## API
@@ -85,7 +116,7 @@ Hatalar RFC 7807 `ProblemDetails` formatında döner: 400 (doğrulama), 401, 403
 ## Yol haritası
 
 - [x] **1. hafta:** Auth ve roller, multi-tenancy, oda tipi/oda/sezon fiyatı, müsaitlik, rezervasyon ve çifte rezervasyon koruması, testler
-- [ ] React + TypeScript yönetim paneli (rezervasyon takvimi, oda ve fiyat yönetimi)
+- [x] **2. hafta:** React + TypeScript yönetim paneli: genel bakış, rezervasyon takvimi, rezervasyon akışı, oda/fiyat/personel yönetimi, testler
 - [ ] Docker Compose, GitHub Actions CI, VPS + Nginx ile canlı yayın
 - [ ] Hangfire (ödenmeyen rezervasyonu 15 dk'da iptal), SignalR, Redis, Testcontainers, Serilog
 - [ ] React Native misafir uygulaması, LLM ile yorum özetleme
