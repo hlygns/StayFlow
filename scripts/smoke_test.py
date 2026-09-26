@@ -133,6 +133,19 @@ check("iptal", call("POST", f"/reservations/{first['id']}/cancel", token=recepti
 check("iptalden sonra ayni geceler tekrar satilir", call("POST", "/reservations",
       {"roomId": room_101, "checkIn": day(30), "checkOut": day(33), "guest": guest}, reception)[0], 201)
 
+# ---------- Check-in / check-out ----------
+status, stay = call("POST", "/reservations", {"roomId": rooms["102"]["id"], "checkIn": day(0), "checkOut": day(3), "guest": guest}, reception)
+check("bugun baslayan rezervasyon", status, 201, stay)
+check("onaylanmadan check-in yapilamaz", call("POST", f"/reservations/{stay['id']}/check-in", token=reception)[0], 409)
+call("POST", f"/reservations/{stay['id']}/confirm", token=reception)
+check("check-in", call("POST", f"/reservations/{stay['id']}/check-in", token=reception)[0], 200)
+check("check-in yapilmis rezervasyon iptal edilemez", call("POST", f"/reservations/{stay['id']}/cancel", token=reception)[0], 409)
+status, checked_out = call("POST", f"/reservations/{stay['id']}/check-out", token=reception)
+check("erken check-out", status, 200, checked_out)
+check("erken check-out: konaklama 1 geceye iner", checked_out["nights"], 1)
+check("bosalan geceler tekrar satilir", call("POST", "/reservations",
+      {"roomId": rooms["102"]["id"], "checkIn": day(1), "checkOut": day(3), "guest": guest}, reception)[0], 201)
+
 # ---------- Oteller arasi izolasyon ----------
 other = register("Baska Otel", f"other-{RUN}@smoke.test")["accessToken"]
 check("baska otelin odasini goremez", call("GET", f"/rooms/{room_101}", token=other)[0], 404)

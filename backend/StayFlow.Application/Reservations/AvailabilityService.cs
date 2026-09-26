@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using StayFlow.Application.Common;
 using StayFlow.Application.Common.Interfaces;
 
 namespace StayFlow.Application.Reservations;
@@ -32,7 +33,7 @@ public class AvailabilityService
     public async Task<List<RoomTypeAvailabilityDto>> SearchAsync(
         DateOnly checkIn, DateOnly checkOut, int? guests, CancellationToken ct = default)
     {
-        StayDates.Validate(checkIn, checkOut, DateOnly.FromDateTime(_timeProvider.GetUtcNow().UtcDateTime));
+        StayDates.Validate(checkIn, checkOut, _timeProvider.Today());
 
         // Tarih cakisma mantigi tek satira indi: RoomNight tablosu sayesinde "iki aralik
         // cakisiyor mu?" yerine "bu araliktaki gecelerden biri dolu mu?" diye soruyoruz.

@@ -97,5 +97,7 @@ export const reservationsApi = {
   get: (id: string) => api.get<Reservation>(`/reservations/${id}`),
   create: (input: ReservationInput) => api.post<Reservation>('/reservations', input),
   confirm: (id: string) => api.post<Reservation>(`/reservations/${id}/confirm`),
+  checkIn: (id: string) => api.post<Reservation>(`/reservations/${id}/check-in`),
+  checkOut: (id: string) => api.post<Reservation>(`/reservations/${id}/check-out`),
   cancel: (id: string) => api.post<Reservation>(`/reservations/${id}/cancel`),
 }

@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using StayFlow.Application.Common;
 using StayFlow.Application.Common.Exceptions;
 using StayFlow.Application.Common.Interfaces;
 using StayFlow.Domain.Entities;
@@ -52,7 +53,7 @@ public class ReservationService
     public async Task<ReservationDto> CreateAsync(CreateReservationRequest request, CancellationToken ct = default)
     {
         var now = _timeProvider.GetUtcNow().UtcDateTime;
-        StayDates.Validate(request.CheckIn, request.CheckOut, DateOnly.FromDateTime(now));
+        StayDates.Validate(request.CheckIn, request.CheckOut, _timeProvider.Today());
 
         var room = await _db.Rooms
             .Include(r => r.RoomType)
@@ -138,6 +139,61 @@ public class ReservationService
     }
 
     /// <summary>
+    /// Misafir otele geldi. Sadece onaylanmis rezervasyon, giris gunu ya da sonrasinda (ama cikistan once)
+    /// check-in yapabilir - yanlis rezervasyona ya da gunler oncesinden giris yapilmasini engeller.
+    /// </summary>
+    public async Task<ReservationDto> CheckInAsync(Guid id, CancellationToken ct = default)
+    {
+        var reservation = await FindAsync(id, ct);
+        var today = Today();
+
+        if (reservation.Status != ReservationStatus.Confirmed)
+        {
+            throw new ConflictException("Sadece onaylanmis rezervasyonlara check-in yapilabilir.");
+        }
+
+        if (today < reservation.CheckIn || today >= reservation.CheckOut)
+        {
+            throw new ConflictException("Check-in sadece konaklama tarihleri icinde yapilabilir.");
+        }
+
+        reservation.Status = ReservationStatus.CheckedIn;
+        await _db.SaveChangesAsync(ct);
+
+        return await GetAsync(id, ct);
+    }
+
+    /// <summary>
+    /// Misafir ayrildi. Planlanandan erken ayrilirsa kalan gecelerin RoomNight satirlari silinir:
+    /// oda o gecelerde tekrar satilabilir. (Ucret iadesi odeme modulunun isi - fiyat degismiyor.)
+    /// </summary>
+    public async Task<ReservationDto> CheckOutAsync(Guid id, CancellationToken ct = default)
+    {
+        var reservation = await _db.Reservations
+            .Include(r => r.RoomNights)
+            .FirstOrDefaultAsync(r => r.Id == id, ct)
+            ?? throw new NotFoundException("Rezervasyon bulunamadi.");
+
+        if (reservation.Status != ReservationStatus.CheckedIn)
+        {
+            throw new ConflictException("Sadece konaklayan misafirin check-out'u yapilabilir.");
+        }
+
+        // Giris gunu ayrilsa bile ilk gece kullanilmis sayilir; bosaltilan geceler en erken ertesi gundur.
+        var firstFreedNight = Max(Today(), reservation.CheckIn.AddDays(1));
+        if (firstFreedNight < reservation.CheckOut)
+        {
+            _db.RoomNights.RemoveRange(reservation.RoomNights.Where(rn => rn.Date >= firstFreedNight));
+            reservation.CheckOut = firstFreedNight;
+        }
+
+        reservation.Status = ReservationStatus.CheckedOut;
+        await _db.SaveChangesAsync(ct);
+
+        return await GetAsync(id, ct);
+    }
+
+    /// <summary>
     /// Iptal: rezervasyon kaydi (gecmis/rapor icin) kalir, ama RoomNight satirlari silinir -
     /// boylece o geceler tekrar satilabilir hale gelir.
     /// </summary>
@@ -160,6 +216,10 @@ public class ReservationService
 
         return await GetAsync(id, ct);
     }
+
+    private DateOnly Today() => _timeProvider.Today();
+
+    private static DateOnly Max(DateOnly a, DateOnly b) => a > b ? a : b;
 
     private async Task<Reservation> FindAsync(Guid id, CancellationToken ct) =>
         await _db.Reservations.FirstOrDefaultAsync(r => r.Id == id, ct)

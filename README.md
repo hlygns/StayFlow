@@ -133,7 +133,7 @@ python scripts/smoke_test.py       # çalışan sisteme karşı uçtan uca test 
 | GET / POST / PUT / DELETE | `/api/rooms` (DELETE = pasife alma) | Okuma: personel, yazma: Owner |
 | GET | `/api/availability?checkIn=&checkOut=&guests=` | Personel |
 | GET / POST | `/api/reservations` | Personel |
-| POST | `/api/reservations/{id}/confirm` · `/cancel` | Personel |
+| POST | `/api/reservations/{id}/confirm` · `/check-in` · `/check-out` · `/cancel` | Personel |
 
 Hatalar RFC 7807 `ProblemDetails` formatında döner: 400 (doğrulama), 401, 403, 404, 409 (çakışma).
 

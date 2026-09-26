@@ -25,7 +25,8 @@ builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentTenantService, CurrentTenantService>();
 
-builder.Services.AddApplication();
+// Otellerin saat dilimi (IANA adi). Simdilik tum oteller Turkiye'de; ileride otel bazina tasinabilir.
+builder.Services.AddApplication(builder.Configuration["App:TimeZone"] ?? "Europe/Istanbul");
 builder.Services.AddInfrastructure(builder.Configuration.GetConnectionString("DefaultConnection")
     ?? throw new InvalidOperationException("ConnectionStrings:DefaultConnection tanimli degil."));
 

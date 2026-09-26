@@ -37,6 +37,14 @@ public class ReservationsController : ControllerBase
     public async Task<ActionResult<ReservationDto>> Confirm(Guid id, CancellationToken ct) =>
         Ok(await _reservationService.ConfirmAsync(id, ct));
 
+    [HttpPost("{id:guid}/check-in")]
+    public async Task<ActionResult<ReservationDto>> CheckIn(Guid id, CancellationToken ct) =>
+        Ok(await _reservationService.CheckInAsync(id, ct));
+
+    [HttpPost("{id:guid}/check-out")]
+    public async Task<ActionResult<ReservationDto>> CheckOut(Guid id, CancellationToken ct) =>
+        Ok(await _reservationService.CheckOutAsync(id, ct));
+
     [HttpPost("{id:guid}/cancel")]
     public async Task<ActionResult<ReservationDto>> Cancel(Guid id, CancellationToken ct) =>
         Ok(await _reservationService.CancelAsync(id, ct));

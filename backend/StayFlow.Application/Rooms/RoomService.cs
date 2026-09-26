@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using Microsoft.EntityFrameworkCore;
+using StayFlow.Application.Common;
 using StayFlow.Application.Common.Exceptions;
 using StayFlow.Application.Common.Interfaces;
 using StayFlow.Domain.Entities;
@@ -19,10 +20,12 @@ public class SaveRoomRequest
 public class RoomService
 {
     private readonly IApplicationDbContext _db;
+    private readonly TimeProvider _timeProvider;
 
-    public RoomService(IApplicationDbContext db)
+    public RoomService(IApplicationDbContext db, TimeProvider timeProvider)
     {
         _db = db;
+        _timeProvider = timeProvider;
     }
 
     public async Task<List<RoomDto>> GetAllAsync(Guid? roomTypeId, bool includeInactive, CancellationToken ct = default) =>
@@ -84,7 +87,7 @@ public class RoomService
 
     private async Task EnsureNoUpcomingReservationsAsync(Guid roomId, CancellationToken ct)
     {
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var today = _timeProvider.Today();
 
         // RoomNight satiri = aktif (iptal edilmemis) rezervasyonun bir gecesi.
         if (await _db.RoomNights.AnyAsync(rn => rn.RoomId == roomId && rn.Date >= today, ct))

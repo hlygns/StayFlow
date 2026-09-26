@@ -6,7 +6,7 @@ import { ErrorAlert } from '../../components/ui/Card'
 import { Modal } from '../../components/ui/Modal'
 import { Spinner } from '../../components/ui/Spinner'
 import { StatusBadge } from '../../components/ui/StatusBadge'
-import { formatDate, formatMoney } from '../../lib/format'
+import { formatDate, formatMoney, today } from '../../lib/format'
 import { useApiMutation } from '../../lib/useApiMutation'
 
 function Row({ label, children }: { label: string; children: ReactNode }) {
@@ -34,8 +34,20 @@ export function ReservationDetailModal({ reservationId, onClose }: { reservation
     onSuccess: onClose,
   })
 
-  const canConfirm = reservation?.status === 'Pending'
-  const canCancel = reservation?.status === 'Pending' || reservation?.status === 'Confirmed'
+  const checkIn = useApiMutation(() => reservationsApi.checkIn(reservationId), { invalidate, successMessage: 'Check-in yapıldı.' })
+  const checkOut = useApiMutation(() => reservationsApi.checkOut(reservationId), {
+    invalidate,
+    successMessage: (r) => (r.nights < (reservation?.nights ?? 0) ? 'Erken check-out yapıldı; kalan geceler satışa açıldı.' : 'Check-out yapıldı.'),
+  })
+
+  // Backend'deki kurallarin aynisi - butonu sadece gecerli oldugunda goster.
+  const todayIso = today()
+  const status = reservation?.status
+  const canConfirm = status === 'Pending'
+  const canCheckIn = status === 'Confirmed' && reservation!.checkIn <= todayIso && todayIso < reservation!.checkOut
+  const canCheckOut = status === 'CheckedIn'
+  const canCancel = status === 'Pending' || status === 'Confirmed'
+  const hasActions = canConfirm || canCheckIn || canCheckOut || canCancel
 
   return (
     <Modal
@@ -43,7 +55,7 @@ export function ReservationDetailModal({ reservationId, onClose }: { reservation
       title={reservation ? `Oda ${reservation.roomNumber} · ${reservation.guest.fullName}` : 'Rezervasyon'}
       onClose={onClose}
       footer={
-        reservation && (canConfirm || canCancel) ? (
+        reservation && hasActions ? (
           <>
             {canCancel && (
               <Button
@@ -57,6 +69,23 @@ export function ReservationDetailModal({ reservationId, onClose }: { reservation
             {canConfirm && (
               <Button loading={confirm.isPending} onClick={() => confirm.mutate(undefined)}>
                 Onayla
+              </Button>
+            )}
+            {canCheckIn && (
+              <Button loading={checkIn.isPending} onClick={() => checkIn.mutate(undefined)}>
+                Check-in yap
+              </Button>
+            )}
+            {canCheckOut && (
+              <Button
+                loading={checkOut.isPending}
+                onClick={() =>
+                  (todayIso >= reservation.checkOut ||
+                    window.confirm('Misafir planlanandan erken ayrılıyor. Kalan geceler satışa açılacak. Devam edilsin mi?')) &&
+                  checkOut.mutate(undefined)
+                }
+              >
+                Check-out yap
               </Button>
             )}
           </>
