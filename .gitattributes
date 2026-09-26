@@ -1,0 +1,10 @@
+# Linux'ta (container, CI, sunucu) calisan dosyalar Windows'ta checkout edilince de LF kalmali:
+# CRLF'li bir shell script "bad interpreter" hatasi verir.
+*.sh          text eol=lf
+*.py          text eol=lf
+*.yml         text eol=lf
+*.yaml        text eol=lf
+*.conf        text eol=lf
+Dockerfile    text eol=lf
+.env.example  text eol=lf
+*.png         binary

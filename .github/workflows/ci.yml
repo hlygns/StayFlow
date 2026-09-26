@@ -1,0 +1,97 @@
+# Her push ve pull request'te:
+#   1) backend: derle + xUnit testleri
+#   2) frontend: lint + Vitest + build
+#   3) e2e: tum sistemi docker compose ile ayaga kaldir, uctan uca duman testini calistir
+#      (20 es zamanli rezervasyonla cifte rezervasyon korumasi dahil)
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+# Ayni dala art arda push edilirse eski calisma iptal edilsin
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend (.NET)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+          cache: true
+          cache-dependency-path: backend/**/*.csproj
+
+      - run: dotnet restore
+      - run: dotnet build --no-restore -c Release
+      - run: dotnet test --no-build -c Release --logger "trx;LogFileName=results.trx"
+
+      - name: Test sonuclarini sakla
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-test-results
+          path: backend/**/TestResults/*.trx
+
+  frontend:
+    name: Admin panel (React)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: admin-panel
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: admin-panel/package-lock.json
+
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+
+  e2e:
+    name: Uctan uca (Docker Compose)
+    needs: [backend, frontend]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Gecici gizli degerleri olustur
+        run: |
+          {
+            echo "DB_PASSWORD=Ci_$(openssl rand -hex 12)!aA1"
+            echo "JWT_SECRET=$(openssl rand -base64 48)"
+            echo "WEB_PORT=8080"
+          } > .env
+
+      - name: Sistemi baslat
+        run: docker compose up --build --detach --wait --wait-timeout 300
+
+      - name: Duman testi
+        run: python3 scripts/smoke_test.py
+        env:
+          API: http://localhost:8080/api
+
+      - name: Hata olursa container loglari
+        if: failure()
+        run: docker compose logs --no-color
+
+      - name: Temizlik
+        if: always()
+        run: docker compose down --volumes
