@@ -1,0 +1,22 @@
+# Canli ortam (VPS) icin docker-compose.yml'in ustune eklenen ayarlar:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# Farklar:
+#  - Imajlar sunucuda derlenmez, GitHub Container Registry'den (GHCR) cekilir (deploy workflow'u yukler)
+#  - Panel sadece 127.0.0.1'e baglanir: disaridan dogrudan erisilemez, onundeki Nginx (HTTPS) uzerinden gelinir
+#  - Container'lar cokerse / sunucu yeniden baslarsa kendiliginden ayaga kalkar
+
+services:
+  db:
+    restart: unless-stopped
+
+  api:
+    image: ghcr.io/${IMAGE_OWNER:?IMAGE_OWNER tanimli degil}/stayflow-api:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+
+  web:
+    image: ghcr.io/${IMAGE_OWNER:?IMAGE_OWNER tanimli degil}/stayflow-web:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    ports: !override
+      - "127.0.0.1:${WEB_PORT:-8080}:80"

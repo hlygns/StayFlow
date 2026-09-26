@@ -1,0 +1,89 @@
+# CI main/master dalinda basariyla bitince (ya da elle tetiklenince):
+#   1) API ve panel imajlarini derleyip GitHub Container Registry'ye (ghcr.io) yukler
+#   2) SSH ile VPS'e baglanip deploy/deploy.sh'i o commit'in imajlariyla calistirir
+#
+# Kurulum (bkz. docs/deploy.md):
+#   Repository variables:  DEPLOY_ENABLED = true
+#   Repository secrets:    VPS_HOST, VPS_USER, VPS_SSH_KEY
+name: Deploy
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main, master]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false # yarim kalan bir deploy'u kesme
+
+jobs:
+  images:
+    name: Imajlari derle ve yukle
+    # Sunucu kurulana kadar bu workflow hic calismaz (DEPLOY_ENABLED degiskeni ile acilir)
+    if: vars.DEPLOY_ENABLED == 'true' && (github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      tag: ${{ steps.meta.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - id: meta
+        name: Etiket ve sahip adini hazirla
+        run: |
+          echo "tag=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+          # ghcr.io kucuk harf ister
+          echo "owner=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: API imaji
+        uses: docker/build-push-action@v6
+        with:
+          context: backend
+          push: true
+          tags: |
+            ghcr.io/${{ steps.meta.outputs.owner }}/stayflow-api:${{ steps.meta.outputs.tag }}
+            ghcr.io/${{ steps.meta.outputs.owner }}/stayflow-api:latest
+          cache-from: type=gha,scope=api
+          cache-to: type=gha,scope=api,mode=max
+
+      - name: Panel imaji
+        uses: docker/build-push-action@v6
+        with:
+          context: admin-panel
+          push: true
+          tags: |
+            ghcr.io/${{ steps.meta.outputs.owner }}/stayflow-web:${{ steps.meta.outputs.tag }}
+            ghcr.io/${{ steps.meta.outputs.owner }}/stayflow-web:latest
+          cache-from: type=gha,scope=web
+          cache-to: type=gha,scope=web,mode=max
+
+  deploy:
+    name: VPS'e yayinla
+    needs: images
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: SSH ile deploy
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            cd ~/stayflow
+            git pull --ff-only
+            ./deploy/deploy.sh ${{ needs.images.outputs.tag }}

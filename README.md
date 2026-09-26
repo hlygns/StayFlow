@@ -3,14 +3,15 @@
 Butik oteller ve pansiyonlar için çok kiracılı (multi-tenant) rezervasyon ve misafir yönetim sistemi.
 Her otel kendi hesabıyla sisteme kaydolur; odalarını, fiyatlarını ve rezervasyonlarını yönetir ve yalnızca kendi verisini görür.
 
-> Durum: **2. hafta tamamlandı**: backend çekirdeği ve React yönetim paneli.
-> Sırada: Docker Compose, CI/CD, canlı yayın.
+> Durum: **3. hafta tamamlandı**: backend, React yönetim paneli, Docker ve CI/CD.
+> Canlı yayın için sunucu kurulumu [docs/deploy.md](docs/deploy.md) rehberinde.
 
 ![Rezervasyon takvimi](docs/screenshots/calendar.png)
 
 ## Teknolojiler
 
 - **Backend:** .NET 10 · ASP.NET Core Web API · EF Core 10 · SQL Server · JWT + refresh token · xUnit
+- **Altyapı:** Docker · Docker Compose · Nginx · GitHub Actions (CI + deploy) · GitHub Container Registry
 - **Yönetim paneli:** React 19 · TypeScript · Vite · Tailwind CSS v4 · TanStack Query · React Router · React Hook Form + Zod · Vitest + Testing Library
 
 ## Yönetim paneli
@@ -64,6 +65,20 @@ admin-panel/
 
 ## Çalıştırma
 
+### En kolay yol: Docker
+
+Tek gereksinim Docker Desktop.
+
+```bash
+cp .env.example .env      # içindeki şifreleri değiştirin
+docker compose up --build
+```
+
+SQL Server, API ve panel birlikte ayağa kalkar; veritabanı tabloları ilk açılışta otomatik oluşturulur.
+Panel `http://localhost:8080` adresinde açılır.
+
+### Geliştirme ortamı
+
 Gereksinimler: .NET 10 SDK ve SQL Server LocalDB (Visual Studio ile birlikte gelir) ya da herhangi bir SQL Server.
 
 ```bash
@@ -94,7 +109,16 @@ Testler:
 ```bash
 cd backend && dotnet test          # 27 test
 cd admin-panel && npm test         # 15 test
+python scripts/smoke_test.py       # çalışan sisteme karşı uçtan uca test (Docker: localhost:8080)
 ```
+
+## CI/CD
+
+- **CI** ([ci.yml](.github/workflows/ci.yml)): Her push'ta backend ve frontend testleri paralel çalışır. İkisi de geçerse
+  sistem Docker Compose ile ayağa kaldırılır ve [smoke_test.py](scripts/smoke_test.py) gerçek SQL Server'a karşı
+  çalışır. Bu testin en önemli kontrolü, aynı oda için 20 eşzamanlı rezervasyondan tam olarak birinin kazanmasıdır.
+- **Deploy** ([deploy.yml](.github/workflows/deploy.yml)): CI `main`/`master` dalında geçerse imajlar `ghcr.io`'ya yüklenir,
+  sunucuya SSH ile bağlanılır ve yeni sürüm sağlık kontrolünden geçene kadar beklenir. Kurulum: [docs/deploy.md](docs/deploy.md).
 
 ## API
 
@@ -117,6 +141,7 @@ Hatalar RFC 7807 `ProblemDetails` formatında döner: 400 (doğrulama), 401, 403
 
 - [x] **1. hafta:** Auth ve roller, multi-tenancy, oda tipi/oda/sezon fiyatı, müsaitlik, rezervasyon ve çifte rezervasyon koruması, testler
 - [x] **2. hafta:** React + TypeScript yönetim paneli: genel bakış, rezervasyon takvimi, rezervasyon akışı, oda/fiyat/personel yönetimi, testler
-- [ ] Docker Compose, GitHub Actions CI, VPS + Nginx ile canlı yayın
+- [x] **3. hafta:** Docker Compose, GitHub Actions CI (Docker'da uçtan uca test dahil), GHCR + SSH ile otomatik deploy, Nginx + Let's Encrypt kurulum rehberi
+- [ ] Sunucuya ilk kurulum ve canlı demo adresi
 - [ ] Hangfire (ödenmeyen rezervasyonu 15 dk'da iptal), SignalR, Redis, Testcontainers, Serilog
 - [ ] React Native misafir uygulaması, LLM ile yorum özetleme
