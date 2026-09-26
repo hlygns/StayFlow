@@ -1,5 +1,7 @@
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using StayFlow.API.Infrastructure;
 using StayFlow.API.Services;
@@ -7,6 +9,7 @@ using StayFlow.Application;
 using StayFlow.Application.Common.Interfaces;
 using StayFlow.Application.Common.Models;
 using StayFlow.Infrastructure;
+using StayFlow.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -65,7 +68,31 @@ var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get
 builder.Services.AddCors(options => options.AddDefaultPolicy(policy =>
     policy.WithOrigins(allowedOrigins).AllowAnyHeader().AllowAnyMethod()));
 
+// /health: Docker ve izleme araclari "uygulama ayakta ve veritabanina erisebiliyor mu?" diye sorar.
+builder.Services.AddHealthChecks().AddDbContextCheck<StayFlowDbContext>();
+
+// Canlida API bir reverse proxy'nin (Nginx) arkasinda calisir: HTTPS orada biter, API'ye HTTP gelir.
+// Proxy'nin ekledigi X-Forwarded-* basliklarindan istemcinin gercek IP'si ve semasi (https) okunur.
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    // Proxy ayni Docker agindaki container; IP'si sabit olmadigi icin bilinen proxy listesi bos birakiliyor.
+    // API portu disariya ACILMAMALI (bkz. docker-compose.prod.yml), yoksa bu basliklar taklit edilebilir.
+    options.KnownIPNetworks.Clear();
+    options.KnownProxies.Clear();
+});
+
 var app = builder.Build();
+
+app.UseForwardedHeaders();
+
+// Container ilk acildiginda veritabani semasini olustur/guncelle. Tek API instance'i oldugu surece
+// guvenli; birden fazla instance'a gecilirse migration ayri bir adimda (migration bundle) calismali.
+if (app.Configuration.GetValue<bool>("Database:MigrateOnStartup"))
+{
+    using var scope = app.Services.CreateScope();
+    await scope.ServiceProvider.GetRequiredService<StayFlowDbContext>().Database.MigrateAsync();
+}
 
 app.UseExceptionHandler();
 
@@ -75,13 +102,18 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
-app.UseHttpsRedirection();
+// HTTPS yonlendirmesi sadece gelistirmede: canlida HTTPS'i Nginx yonetiyor.
+if (app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
 
 app.UseCors();
 app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+app.MapHealthChecks("/health");
 
 app.Run();
 

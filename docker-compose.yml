@@ -1,0 +1,50 @@
+# Tum sistemi tek komutla yerelde calistirir:  docker compose up --build
+# Panel: http://localhost:8080   (API'ye panelin icinden /api ile erisilir)
+#
+# Gizli degerler .env dosyasindan gelir; ornegi .env.example. .env git'e EKLENMEZ.
+
+services:
+  db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD tanimli degil - .env.example'a bakin}
+      MSSQL_PID: Express
+    volumes:
+      - db-data:/var/opt/mssql
+    healthcheck:
+      # SQL Server sorgu kabul etmeye baslayana kadar API baslatilmaz
+      test: /opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P "$${MSSQL_SA_PASSWORD}" -Q "SELECT 1" -b -o /dev/null
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+  api:
+    build: ./backend
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ConnectionStrings__DefaultConnection: "Server=db;Database=StayFlow;User Id=sa;Password=${DB_PASSWORD};TrustServerCertificate=True"
+      Jwt__SecretKey: ${JWT_SECRET:?JWT_SECRET tanimli degil - .env.example'a bakin}
+      Database__MigrateOnStartup: "true"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      # aspnet imajinda curl yok; bash'in /dev/tcp ozelligiyle (sh'ta yok, bu yuzden bash -c) /health'e basit bir HTTP istegi
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/localhost/8080 && printf 'GET /health HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3 && grep -q 'Healthy' <&3"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 15s
+
+  web:
+    build: ./admin-panel
+    ports:
+      - "${WEB_PORT:-8080}:80"
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  db-data:
