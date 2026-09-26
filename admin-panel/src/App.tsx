@@ -3,6 +3,7 @@ import { RequireAuth } from './auth/RequireAuth'
 import { Layout } from './components/Layout'
 import { LoginPage } from './pages/auth/LoginPage'
 import { RegisterPage } from './pages/auth/RegisterPage'
+import { CalendarPage } from './pages/calendar/CalendarPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { RoomTypesPage } from './pages/room-types/RoomTypesPage'
 import { RoomsPage } from './pages/rooms/RoomsPage'
@@ -20,6 +21,7 @@ export default function App() {
         }
       >
         <Route index element={<DashboardPage />} />
+        <Route path="calendar" element={<CalendarPage />} />
         <Route path="room-types" element={<RoomTypesPage />} />
         <Route path="rooms" element={<RoomsPage />} />
       </Route>
