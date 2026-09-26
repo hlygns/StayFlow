@@ -1,0 +1,33 @@
+@import 'tailwindcss';
+
+/* Tasarim token'lari: tum renkler buradan gelir, bilesenler "bg-brand-600" gibi isimler kullanir. */
+@theme {
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  /* Akdeniz turkuazi - marka rengi */
+  --color-brand-50: #effcfb;
+  --color-brand-100: #d6f5f3;
+  --color-brand-200: #b0ebe8;
+  --color-brand-500: #14a3a0;
+  --color-brand-600: #0e8583;
+  --color-brand-700: #0f6a69;
+  --color-brand-800: #115556;
+  --color-brand-900: #123f41;
+
+  --color-surface: #ffffff;
+  --color-canvas: #f6f7f9;
+}
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    @apply bg-canvas text-slate-800;
+  }
+
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-brand-500;
+  }
+}
