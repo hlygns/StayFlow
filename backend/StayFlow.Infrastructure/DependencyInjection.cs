@@ -18,6 +18,7 @@ public static class DependencyInjection
         // Servisler IApplicationDbContext ister; ayni istek icindeki (scoped) StayFlowDbContext'i veriyoruz.
         services.AddScoped<IApplicationDbContext>(sp => sp.GetRequiredService<StayFlowDbContext>());
         services.AddSingleton<IPasswordHasher, PasswordHasher>();
+        services.AddScoped<DemoDataSeeder>();
 
         return services;
     }

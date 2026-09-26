@@ -65,6 +65,8 @@ jobs:
         with:
           context: admin-panel
           push: true
+          # Repository variable DEMO_MODE=true ise giris ekraninda demo butonu olur
+          build-args: VITE_DEMO_LOGIN=${{ vars.DEMO_MODE || 'false' }}
           tags: |
             ghcr.io/${{ steps.meta.outputs.owner }}/stayflow-web:${{ steps.meta.outputs.tag }}
             ghcr.io/${{ steps.meta.outputs.owner }}/stayflow-web:latest

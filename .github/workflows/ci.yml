@@ -78,6 +78,7 @@ jobs:
             echo "DB_PASSWORD=Ci_$(openssl rand -hex 12)!aA1"
             echo "JWT_SECRET=$(openssl rand -base64 48)"
             echo "WEB_PORT=8080"
+            echo "DEMO_MODE=true"   # demo verisi uretimi de gercek SQL Server'a karsi calissin
           } > .env
 
       - name: Sistemi baslat

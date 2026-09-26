@@ -27,6 +27,8 @@ services:
       ConnectionStrings__DefaultConnection: "Server=db;Database=StayFlow;User Id=sa;Password=${DB_PASSWORD};TrustServerCertificate=True"
       Jwt__SecretKey: ${JWT_SECRET:?JWT_SECRET tanimli degil - .env.example'a bakin}
       Database__MigrateOnStartup: "true"
+      # DEMO_MODE=true: acilista ornek verili "Lara Butik Otel (Demo)" olusturulur
+      Database__SeedDemoData: ${DEMO_MODE:-false}
     depends_on:
       db:
         condition: service_healthy
@@ -39,7 +41,10 @@ services:
       start_period: 15s
 
   web:
-    build: ./admin-panel
+    build:
+      context: ./admin-panel
+      args:
+        VITE_DEMO_LOGIN: ${DEMO_MODE:-false}
     ports:
       - "${WEB_PORT:-8080}:80"
     depends_on:

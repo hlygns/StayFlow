@@ -7,6 +7,9 @@ COPY package.json package-lock.json ./
 RUN npm ci
 
 COPY . .
+# Demo kurulumunda giris ekraninda "Demo hesabiyla dene" butonu cikar (bkz. LoginPage)
+ARG VITE_DEMO_LOGIN=false
+ENV VITE_DEMO_LOGIN=$VITE_DEMO_LOGIN
 RUN npm run build
 
 # === 2. asama: derlenmis statik dosyalari Nginx ile sun ===

@@ -3,7 +3,7 @@
 Butik oteller ve pansiyonlar için çok kiracılı (multi-tenant) rezervasyon ve misafir yönetim sistemi.
 Her otel kendi hesabıyla sisteme kaydolur; odalarını, fiyatlarını ve rezervasyonlarını yönetir ve yalnızca kendi verisini görür.
 
-> Durum: **3. hafta tamamlandı**: backend, React yönetim paneli, Docker ve CI/CD.
+> Durum: **Faz 1 tamamlandı (4 hafta)**: backend, React yönetim paneli, Docker, CI/CD ve demo verisi.
 > Canlı yayın için sunucu kurulumu [docs/deploy.md](docs/deploy.md) rehberinde.
 
 ![Rezervasyon takvimi](docs/screenshots/calendar.png)
@@ -78,6 +78,12 @@ docker compose up --build
 SQL Server, API ve panel birlikte ayağa kalkar; veritabanı tabloları ilk açılışta otomatik oluşturulur.
 Panel `http://localhost:8080` adresinde açılır.
 
+**Demo modu:** `.env` içinde `DEMO_MODE=true` yapılırsa ilk açılışta "Lara Butik Otel (Demo)" oluşturulur. Bu otelde
+12 oda, sezon fiyatı ve bugüne göre dağıtılmış yaklaşık iki aylık rezervasyon bulunur: konaklayanlar, bugün gelecekler, gelecek rezervasyonlar ve iptaller.
+Giriş ekranında **"Demo hesabıyla dene"** butonu çıkar (`demo@stayflow.app` / `Demo1234!`).
+
+![Giriş ekranı](docs/screenshots/login.png)
+
 ### Geliştirme ortamı
 
 Gereksinimler: .NET 10 SDK ve SQL Server LocalDB (Visual Studio ile birlikte gelir) ya da herhangi bir SQL Server.
@@ -108,7 +114,7 @@ Panel `http://localhost:5173` adresinde açılır; `/api` istekleri Vite üzerin
 Testler:
 
 ```bash
-cd backend && dotnet test          # 44 test (servis + HTTP entegrasyon)
+cd backend && dotnet test          # 47 test (servis + HTTP entegrasyon + demo verisi)
 cd admin-panel && npm test         # 15 test
 python scripts/smoke_test.py       # çalışan sisteme karşı uçtan uca test (Docker: localhost:8080)
 ```
@@ -143,6 +149,7 @@ Hatalar RFC 7807 `ProblemDetails` formatında döner: 400 (doğrulama), 401, 403
 - [x] **1. hafta:** Auth ve roller, multi-tenancy, oda tipi/oda/sezon fiyatı, müsaitlik, rezervasyon ve çifte rezervasyon koruması, testler
 - [x] **2. hafta:** React + TypeScript yönetim paneli: genel bakış, rezervasyon takvimi, rezervasyon akışı, oda/fiyat/personel yönetimi, testler
 - [x] **3. hafta:** Docker Compose, GitHub Actions CI (Docker'da uçtan uca test dahil), GHCR + SSH ile otomatik deploy, Nginx + Let's Encrypt kurulum rehberi
+- [x] **4. hafta:** Check-in/check-out (erken çıkışta kalan geceler satışa açılır), otelin saat dilimine göre "bugün", httpOnly refresh cookie, giriş deneme sınırı, HTTP entegrasyon testleri, API dokümantasyonu, demo verisi
 - [ ] Sunucuya ilk kurulum ve canlı demo adresi
 - [ ] Hangfire (ödenmeyen rezervasyonu 15 dk'da iptal), SignalR, Redis, Testcontainers, Serilog
 - [ ] React Native misafir uygulaması, LLM ile yorum özetleme

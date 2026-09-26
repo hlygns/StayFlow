@@ -116,6 +116,13 @@ if (app.Configuration.GetValue<bool>("Database:MigrateOnStartup"))
     await scope.ServiceProvider.GetRequiredService<StayFlowDbContext>().Database.MigrateAsync();
 }
 
+// Canli demo: giris ekranindaki "Demo hesabiyla dene" butonu bu oteli kullanir.
+if (app.Configuration.GetValue<bool>("Database:SeedDemoData"))
+{
+    using var scope = app.Services.CreateScope();
+    await scope.ServiceProvider.GetRequiredService<DemoDataSeeder>().SeedAsync();
+}
+
 app.UseExceptionHandler();
 
 // Configure the HTTP request pipeline.

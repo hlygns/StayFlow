@@ -61,6 +61,7 @@ nano .env
 | `JWT_SECRET` | `openssl rand -base64 48` çıktısı |
 | `WEB_PORT` | `8080` (Nginx buna yönlendirir) |
 | `IMAGE_OWNER` | GitHub kullanıcı adınız, **küçük harflerle** (imajlar `ghcr.io/<bu>/stayflow-*`) |
+| `DEMO_MODE` | Portföy demosu için `true`: örnek verili demo otel oluşturulur. Gerçek müşteri kurulumunda `false` |
 
 ```bash
 chmod 600 .env   # sadece deploy kullanıcısı okuyabilsin
@@ -100,7 +101,7 @@ Sertifika her 90 günde bir otomatik yenilenir (`systemctl list-timers | grep ce
    ```
 2. GitHub'da **Settings → Secrets and variables → Actions** sayfasına gidin:
    - **Secrets:** `VPS_HOST` (sunucu IP'si veya alan adı), `VPS_USER` (`deploy`), `VPS_SSH_KEY` (yukarıdaki özel anahtar)
-   - **Variables:** `DEPLOY_ENABLED` = `true`
+   - **Variables:** `DEPLOY_ENABLED` = `true`; demo sitesi için ayrıca `DEMO_MODE` = `true` (giriş ekranına "Demo hesabıyla dene" butonu ekler)
 3. **Settings → Environments** sayfasından `production` ortamını oluşturun. İsterseniz burada "Required reviewers" ile her deploy'u onaya bağlayabilirsiniz.
 
 Bundan sonra `main` (veya `master`) dalına yapılan her push şöyle işler:

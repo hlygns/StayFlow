@@ -41,6 +41,8 @@ export async function refreshTokens(): Promise<boolean> {
       // Govde yok: tarayici httpOnly refresh cookie'sini kendisi ekler (ayni origin).
       const response = await fetch(`${BASE_URL}/auth/refresh`, { method: 'POST', credentials: 'same-origin' })
       if (!response.ok) {
+        // Govdeyi okumadan birakmak istegi "yarim" birakir ve baglantinin tekrar kullanilmasini geciktirir
+        await response.body?.cancel()
         setSession(null)
         return false
       }
@@ -77,7 +79,9 @@ async function request<T>(method: Method, path: string, body?: unknown, retry = 
 
   // Access token suresi dolduysa bir kere yenileyip ayni istegi tekrar dene.
   if (response.status === 401 && session && retry && !path.startsWith('/auth/')) {
+    await response.body?.cancel()
     if (await refreshTokens()) return request<T>(method, path, body, false)
+    throw new ApiError(401, { detail: 'Oturumunuzun süresi doldu. Lütfen tekrar giriş yapın.' })
   }
 
   if (!response.ok) {

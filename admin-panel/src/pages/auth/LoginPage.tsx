@@ -1,4 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod'
+import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router'
 import { z } from 'zod'
@@ -14,6 +15,12 @@ const schema = z.object({
 })
 type FormValues = z.infer<typeof schema>
 
+// Sadece demo kurulumunda (build sirasinda VITE_DEMO_LOGIN=true) gorunur. Hesap backend'deki
+// DemoDataSeeder'in olusturdugu ornek otel; gercek otellerin panelinde bu buton hic derlenmez.
+const DEMO_ENABLED = import.meta.env.VITE_DEMO_LOGIN === 'true'
+const DEMO_EMAIL = 'demo@stayflow.app'
+const DEMO_PASSWORD = 'Demo1234!'
+
 export function LoginPage() {
   const { user, login } = useAuth()
   const navigate = useNavigate()
@@ -26,17 +33,20 @@ export function LoginPage() {
     setError,
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({ resolver: zodResolver(schema) })
+  const [demoLoading, setDemoLoading] = useState(false)
 
   if (user) return <Navigate to={from} replace />
 
-  const onSubmit = handleSubmit(async ({ email, password }) => {
+  const signIn = async (email: string, password: string) => {
     try {
       await login(email, password)
       navigate(from, { replace: true })
     } catch (error) {
       setError('root', { message: error instanceof Error ? error.message : 'Giriş yapılamadı.' })
     }
-  })
+  }
+
+  const onSubmit = handleSubmit(({ email, password }) => signIn(email, password))
 
   return (
     <AuthShell
@@ -59,6 +69,22 @@ export function LoginPage() {
           Giriş yap
         </Button>
       </form>
+      {DEMO_ENABLED && (
+        <div className="mt-6 rounded-lg bg-brand-50 p-4 text-sm ring-1 ring-brand-100">
+          <p className="font-medium text-brand-900">Projeyi incelemek mi istiyorsunuz?</p>
+          <p className="mt-1 text-brand-800">Örnek odalar ve rezervasyonlarla dolu bir demo otel hazır.</p>
+          <Button variant="secondary" className="mt-3 w-full" disabled={isSubmitting}
+            loading={demoLoading}
+            onClick={async () => {
+              setDemoLoading(true)
+              await signIn(DEMO_EMAIL, DEMO_PASSWORD)
+              setDemoLoading(false)
+            }}
+          >
+            Demo hesabıyla dene
+          </Button>
+        </div>
+      )}
     </AuthShell>
   )
 }
