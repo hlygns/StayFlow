@@ -40,7 +40,10 @@ builder.Services.AddOpenApi(options => options.AddDocumentTransformer((document,
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 
 builder.Services.AddHttpContextAccessor();
-builder.Services.AddScoped<ICurrentTenantService, CurrentTenantService>();
+// Ayni (scoped) nesne iki arayuzle: filtreler okur, herkese acik uclar otel secer
+builder.Services.AddScoped<CurrentTenantService>();
+builder.Services.AddScoped<ICurrentTenantService>(sp => sp.GetRequiredService<CurrentTenantService>());
+builder.Services.AddScoped<ITenantOverride>(sp => sp.GetRequiredService<CurrentTenantService>());
 
 // Otellerin saat dilimi (IANA adi). Simdilik tum oteller Turkiye'de; ileride otel bazina tasinabilir.
 var hotelTimeZone = TimeZoneInfo.FindSystemTimeZoneById(builder.Configuration["App:TimeZone"] ?? "Europe/Istanbul");

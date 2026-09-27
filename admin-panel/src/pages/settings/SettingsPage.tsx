@@ -6,7 +6,7 @@ import { hotelApi } from '../../api/endpoints'
 import type { Hotel } from '../../api/types'
 import { Button } from '../../components/ui/Button'
 import { Card, ErrorAlert, PageHeader } from '../../components/ui/Card'
-import { Input } from '../../components/ui/Field'
+import { Input, Textarea } from '../../components/ui/Field'
 import { PageLoader } from '../../components/ui/Spinner'
 import { useApiMutation } from '../../lib/useApiMutation'
 
@@ -16,6 +16,7 @@ const schema = z.object({
   address: z.string().trim().max(500),
   phone: z.string().trim().max(30),
   email: z.union([z.literal(''), z.email('Geçerli bir e-posta girin.')]),
+  description: z.string().trim().max(2000, 'En fazla 2000 karakter.'),
 })
 type FormValues = z.infer<typeof schema>
 
@@ -47,6 +48,12 @@ function HotelForm({ hotel }: { hotel: Hotel }) {
           <Input label="Telefon" type="tel" error={errors.phone?.message} {...register('phone')} />
           <Input label="E-posta" type="email" error={errors.email?.message} {...register('email')} />
         </div>
+        <Textarea
+          label="Tanıtım metni"
+          placeholder="Misafir uygulamasında otelinizin sayfasında görünür. Ör. denize uzaklık, kahvaltı, otopark…"
+          error={errors.description?.message}
+          {...register('description')}
+        />
         <div className="rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-600">
           Otel kısa adı (slug): <span className="font-mono text-slate-900">{hotel.slug}</span>
           <span className="block text-xs text-slate-500">Paylaşılmış bağlantılar bozulmasın diye değiştirilemez.</span>

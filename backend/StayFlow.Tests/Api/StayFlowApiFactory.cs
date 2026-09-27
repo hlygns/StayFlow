@@ -32,6 +32,7 @@ public class StayFlowApiFactory : WebApplicationFactory<Program>
         builder.UseSetting("Jwt:SecretKey", "integration-tests-only-secret-key-0123456789");
         builder.UseSetting("ConnectionStrings:DefaultConnection", "Server=unused");
         builder.UseSetting("RateLimiting:AuthPermitPerMinute", AuthPermitPerMinute.ToString());
+        builder.UseSetting("RateLimiting:PublicPermitPerMinute", "1000");
         builder.UseSetting("BackgroundJobs:Enabled", "false"); // Hangfire SQL Server ister; is mantigi ayri test ediliyor
 
         builder.ConfigureServices(services =>

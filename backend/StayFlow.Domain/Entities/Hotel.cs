@@ -15,6 +15,9 @@ public class Hotel
     public string Address { get; set; } = string.Empty;
     public string Phone { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
+
+    /// <summary>Misafir uygulamasinda gorunen kisa tanitim.</summary>
+    public string Description { get; set; } = string.Empty;
     public bool IsActive { get; set; } = true;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 

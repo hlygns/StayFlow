@@ -4,11 +4,20 @@ namespace StayFlow.API.Services;
 
 /// <summary>
 /// ICurrentTenantService'in gercek implementasyonu: giris yapmis kullanicinin JWT'sindeki
-/// "hotelId" claim'ini okur. Claim henuz yok (Gun 3'te JWT uretimine eklenecek) - o zamana
-/// kadar HotelId hep null doner, DbContext'teki fail-closed filtre sayesinde bu guvenli bir durum.
+/// "hotelId" claim'ini okur. Herkese acik uclarda (misafir uygulamasi) claim yoktur; orada servis
+/// oteli slug'dan bulup UseHotel ile belirler. Hicbiri yoksa null: fail-closed filtre hicbir satir dondurmez.
 /// </summary>
-public class CurrentTenantService : ICurrentTenantService
+public class CurrentTenantService : ICurrentTenantService, ITenantOverride
 {
+    private Guid? _override;
+
+    /// <summary>
+    /// Sadece herkese acik uclarda (PublicBookingService) cagrilir. O uclar yalnizca herkese acik veriyi ve
+    /// "kod + e-posta" ile korunan islemleri sunar; bu yuzden istekte bir personel token'i olsa bile
+    /// secilen otel gecerlidir (panelde oturumu acik biri baska bir otelin sayfasina bakabilmeli).
+    /// </summary>
+    public void UseHotel(Guid hotelId) => _override = hotelId;
+
     private readonly IHttpContextAccessor _httpContextAccessor;
 
     public CurrentTenantService(IHttpContextAccessor httpContextAccessor)
@@ -16,7 +25,9 @@ public class CurrentTenantService : ICurrentTenantService
         _httpContextAccessor = httpContextAccessor;
     }
 
-    public Guid? HotelId
+    public Guid? HotelId => _override ?? ClaimHotelId;
+
+    private Guid? ClaimHotelId
     {
         get
         {

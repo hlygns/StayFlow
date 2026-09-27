@@ -30,7 +30,11 @@ export function ReservationsPage() {
   // Isim/oda aramasi istemci tarafinda: liste zaten tarih araligiyla sinirli.
   const term = search.trim().toLocaleLowerCase('tr')
   const reservations = (data ?? []).filter(
-    (r) => !term || r.guest.fullName.toLocaleLowerCase('tr').includes(term) || r.roomNumber.includes(term),
+    (r) =>
+      !term ||
+      r.guest.fullName.toLocaleLowerCase('tr').includes(term) ||
+      r.roomNumber.includes(term) ||
+      (r.confirmationCode?.toLocaleLowerCase('tr').includes(term) ?? false),
   )
 
   return (
@@ -59,7 +63,7 @@ export function ReservationsPage() {
             </option>
           ))}
         </Select>
-        <Input label="Ara" type="search" placeholder="Misafir adı veya oda no" value={search} onChange={(e) => setSearch(e.target.value)} />
+        <Input label="Ara" type="search" placeholder="Misafir, oda no veya rezervasyon kodu" value={search} onChange={(e) => setSearch(e.target.value)} />
       </Card>
 
       {isLoading ? (

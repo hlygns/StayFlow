@@ -15,6 +15,7 @@ const reservation = (overrides: Partial<Reservation>): Reservation => ({
   totalPrice: 3000,
   paymentDeadline: null,
   createdAt: '2027-07-01T10:00:00Z',
+  confirmationCode: 'K7M2QX9A',
   guest: { id: 'g', fullName: 'Ayşe Yılmaz', email: null, phone: null },
   ...overrides,
 })

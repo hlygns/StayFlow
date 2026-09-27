@@ -121,6 +121,11 @@ namespace StayFlow.Infrastructure.Persistence.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
                     b.Property<string>("Email")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
@@ -197,6 +202,10 @@ namespace StayFlow.Infrastructure.Persistence.Migrations
                     b.Property<DateOnly>("CheckOut")
                         .HasColumnType("date");
 
+                    b.Property<string>("ConfirmationCode")
+                        .HasMaxLength(12)
+                        .HasColumnType("nvarchar(12)");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
@@ -227,6 +236,10 @@ namespace StayFlow.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("ConfirmationCode")
+                        .IsUnique()
+                        .HasFilter("[ConfirmationCode] IS NOT NULL");
+
                     b.HasIndex("GuestId");
 
                     b.HasIndex("HotelId");
@@ -234,6 +247,56 @@ namespace StayFlow.Infrastructure.Persistence.Migrations
                     b.HasIndex("RoomId");
 
                     b.ToTable("Reservations");
+                });
+
+            modelBuilder.Entity("StayFlow.Domain.Entities.Review", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Comment")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("GuestName")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("HotelId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsPublished")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("OwnerRepliedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("OwnerReply")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<int>("Rating")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("ReservationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("HotelId");
+
+                    b.HasIndex("ReservationId")
+                        .IsUnique();
+
+                    b.ToTable("Reviews", t =>
+                        {
+                            t.HasCheckConstraint("CK_Review_Rating", "[Rating] BETWEEN 1 AND 5");
+                        });
                 });
 
             modelBuilder.Entity("StayFlow.Domain.Entities.Room", b =>
@@ -429,6 +492,25 @@ namespace StayFlow.Infrastructure.Persistence.Migrations
                     b.Navigation("Hotel");
 
                     b.Navigation("Room");
+                });
+
+            modelBuilder.Entity("StayFlow.Domain.Entities.Review", b =>
+                {
+                    b.HasOne("StayFlow.Domain.Entities.Hotel", "Hotel")
+                        .WithMany()
+                        .HasForeignKey("HotelId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("StayFlow.Domain.Entities.Reservation", "Reservation")
+                        .WithMany()
+                        .HasForeignKey("ReservationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Hotel");
+
+                    b.Navigation("Reservation");
                 });
 
             modelBuilder.Entity("StayFlow.Domain.Entities.Room", b =>

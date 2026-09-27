@@ -17,6 +17,7 @@ const r = (checkIn: string, checkOut: string, status: Reservation['status'] = 'C
   totalPrice: 1000,
   paymentDeadline: null,
   createdAt: '2027-07-01T10:00:00Z',
+  confirmationCode: 'K7M2QX9A',
   guest: { id: 'g', fullName: 'Misafir', email: null, phone: null },
 })
 

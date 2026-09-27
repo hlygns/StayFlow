@@ -105,6 +105,25 @@ public class ReservationServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task Oda_tipi_rezervasyonunda_yarisi_kaybeden_bir_sonraki_bos_odayi_alir()
+    {
+        // Aday odalar [101, 102] olarak secildikten SONRA, kayittan hemen once biri 101'i kapiyor.
+        // Ilk deneme unique index'e takilir; ayni istek 102'yi dener ve basarir.
+        var hotel = await _database.SeedHotelAsync("Otel A", roomNumbers: ["101", "102"]);
+        var race = new BeforeFirstSaveInterceptor(() =>
+            CreateService(hotel).CreateAsync(Request(hotel.RoomIds[0], July10, 2)));
+
+        var result = await CreateService(hotel, race).CreateForRoomTypeAsync(
+            hotel.RoomTypeId, July10, July10.AddDays(2), 1, new GuestInput { FullName = "Mobil Misafir" });
+
+        Assert.True(race.Fired);
+        Assert.Equal("102", result.RoomNumber);
+        await using var db = _database.CreateContext(hotel.Tenant);
+        Assert.Equal(2, await db.Reservations.CountAsync());
+        Assert.Equal(4, await db.RoomNights.CountAsync()); // basarisiz denemeden artik satir yok
+    }
+
+    [Fact]
     public async Task Veritabani_ayni_oda_ve_geceyi_iki_kere_kabul_etmez()
     {
         // Uygulama kodunu tamamen atlayip dogrudan tabloya yaziyoruz: kisit gercekten DB'de mi?

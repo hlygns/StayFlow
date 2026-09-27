@@ -6,6 +6,7 @@ namespace StayFlow.API.Infrastructure;
 public static class RateLimitPolicies
 {
     public const string Auth = "auth";
+    public const string Public = "public";
 
     /// <summary>
     /// Giris ve kayit uclari icin IP basina dakikada N istek (varsayilan 20). Sifre deneme-yanilma
@@ -26,6 +27,13 @@ public static class RateLimitPolicies
                     Window = TimeSpan.FromMinutes(1),
                     QueueLimit = 0
                 }));
+
+            // Misafir uygulamasi (oturumsuz): IP basina dakikada 120 istek. Rezervasyon kodu tahmin etmeye
+            // (kod + e-posta birlikte gerekse de) ve musaitlik sorgusuyla sunucuyu yormaya karsi.
+            var publicPermit = configuration.GetValue("RateLimiting:PublicPermitPerMinute", 120);
+            options.AddPolicy(Public, httpContext => RateLimitPartition.GetFixedWindowLimiter(
+                partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                factory: _ => new FixedWindowRateLimiterOptions { PermitLimit = publicPermit, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
 
             options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
             options.OnRejected = async (context, ct) =>

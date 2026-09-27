@@ -10,3 +10,13 @@ public interface ICurrentTenantService
 {
     Guid? HotelId { get; }
 }
+
+/// <summary>
+/// Oturum acilmamis (herkese acik) isteklerde tenant'i elle belirlemek icin: misafir uygulamasi
+/// oteli slug ile secer, servis o otelin Id'sini buraya yazar ve istegin geri kalaninda tum sorgular
+/// (query filter'lar, onbellek) o otelle sinirlanir. Istek (scope) bitince kaybolur.
+/// </summary>
+public interface ITenantOverride
+{
+    void UseHotel(Guid hotelId);
+}

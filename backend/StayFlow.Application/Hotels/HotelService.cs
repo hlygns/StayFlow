@@ -5,7 +5,7 @@ using StayFlow.Application.Common.Interfaces;
 
 namespace StayFlow.Application.Hotels;
 
-public record HotelDto(Guid Id, string Name, string Slug, string City, string Address, string Phone, string Email);
+public record HotelDto(Guid Id, string Name, string Slug, string City, string Address, string Phone, string Email, string Description);
 
 public class UpdateHotelRequest
 {
@@ -14,6 +14,7 @@ public class UpdateHotelRequest
     [MaxLength(500)] public string Address { get; set; } = string.Empty;
     [MaxLength(30)] public string Phone { get; set; } = string.Empty;
     [EmailAddress] public string? Email { get; set; }
+    [MaxLength(2000)] public string? Description { get; set; }
 }
 
 /// <summary>
@@ -34,7 +35,7 @@ public class HotelService
     public async Task<HotelDto> GetCurrentAsync(CancellationToken ct = default)
     {
         var hotel = await FindCurrentAsync(ct);
-        return new HotelDto(hotel.Id, hotel.Name, hotel.Slug, hotel.City, hotel.Address, hotel.Phone, hotel.Email);
+        return new HotelDto(hotel.Id, hotel.Name, hotel.Slug, hotel.City, hotel.Address, hotel.Phone, hotel.Email, hotel.Description);
     }
 
     public async Task<HotelDto> UpdateCurrentAsync(UpdateHotelRequest request, CancellationToken ct = default)
@@ -47,9 +48,10 @@ public class HotelService
         hotel.Address = request.Address.Trim();
         hotel.Phone = request.Phone.Trim();
         hotel.Email = request.Email?.Trim() ?? string.Empty;
+        hotel.Description = request.Description?.Trim() ?? string.Empty;
         await _db.SaveChangesAsync(ct);
 
-        return new HotelDto(hotel.Id, hotel.Name, hotel.Slug, hotel.City, hotel.Address, hotel.Phone, hotel.Email);
+        return new HotelDto(hotel.Id, hotel.Name, hotel.Slug, hotel.City, hotel.Address, hotel.Phone, hotel.Email, hotel.Description);
     }
 
     private async Task<Domain.Entities.Hotel> FindCurrentAsync(CancellationToken ct)

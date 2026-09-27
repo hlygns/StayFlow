@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using StayFlow.Domain.Entities;
 
 namespace StayFlow.Application.Common.Interfaces;
@@ -19,6 +20,10 @@ public interface IApplicationDbContext
     DbSet<Reservation> Reservations { get; }
     DbSet<RoomNight> RoomNights { get; }
     DbSet<Payment> Payments { get; }
+    DbSet<Review> Reviews { get; }
+
+    /// <summary>Basarisiz bir kayit denemesinden sonra izlenen (eklenmeyi bekleyen) nesneleri temizlemek icin.</summary>
+    ChangeTracker ChangeTracker { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

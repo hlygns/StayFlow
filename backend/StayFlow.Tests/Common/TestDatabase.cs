@@ -8,9 +8,11 @@ using StayFlow.Infrastructure.Persistence;
 namespace StayFlow.Tests.Common;
 
 /// <summary>Testte "su an hangi otel adina istek yapiliyor" bilgisini elle ayarlamak icin.</summary>
-public class FakeTenantService : ICurrentTenantService
+public class FakeTenantService : ICurrentTenantService, ITenantOverride
 {
     public Guid? HotelId { get; set; }
+
+    public void UseHotel(Guid hotelId) => HotelId = hotelId;
 }
 
 /// <summary>

@@ -122,6 +122,11 @@ export function ReservationDetailModal({ reservationId, onClose }: { reservation
             <Row label="Durum">
               <StatusBadge status={reservation.status} />
             </Row>
+            {reservation.confirmationCode && (
+              <Row label="Rezervasyon kodu">
+                <span className="font-mono tracking-wider">{reservation.confirmationCode}</span>
+              </Row>
+            )}
             {reservation.status === 'Pending' && reservation.paymentDeadline && (
               <Row label="Ödeme için son">
                 <PaymentDeadline deadline={reservation.paymentDeadline} />

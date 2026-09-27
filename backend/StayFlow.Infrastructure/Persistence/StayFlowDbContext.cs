@@ -29,6 +29,7 @@ public class StayFlowDbContext : DbContext, IApplicationDbContext
     public DbSet<Reservation> Reservations => Set<Reservation>();
     public DbSet<RoomNight> RoomNights => Set<RoomNight>();
     public DbSet<Payment> Payments => Set<Payment>();
+    public DbSet<Review> Reviews => Set<Review>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -54,6 +55,17 @@ public class StayFlowDbContext : DbContext, IApplicationDbContext
         // Refresh istegi kullaniciyi token hash'inden bulur - tum tabloyu taramasin.
         modelBuilder.Entity<AppUser>().HasIndex(u => u.RefreshToken);
         modelBuilder.Entity<AppUser>().HasIndex(u => u.PreviousRefreshToken);
+
+        // Rezervasyon kodu tum sistemde tekil (misafir oteli secmeden kodla arar)
+        modelBuilder.Entity<Reservation>().Property(r => r.ConfirmationCode).HasMaxLength(12);
+        modelBuilder.Entity<Reservation>().HasIndex(r => r.ConfirmationCode).IsUnique();
+        modelBuilder.Entity<Hotel>().Property(h => h.Description).HasMaxLength(2000);
+
+        // Bir konaklama icin tek yorum
+        modelBuilder.Entity<Review>().HasIndex(r => r.ReservationId).IsUnique();
+        modelBuilder.Entity<Review>().Property(r => r.Comment).HasMaxLength(2000);
+        modelBuilder.Entity<Review>().Property(r => r.OwnerReply).HasMaxLength(2000);
+        modelBuilder.Entity<Review>().ToTable(t => t.HasCheckConstraint("CK_Review_Rating", "[Rating] BETWEEN 1 AND 5"));
 
         // Ayni otelde iki tane "101" numarali oda olamaz.
         modelBuilder.Entity<Room>()
@@ -111,6 +123,7 @@ public class StayFlowDbContext : DbContext, IApplicationDbContext
         modelBuilder.Entity<Reservation>().HasQueryFilter(e => e.HotelId == _currentTenantService.HotelId);
         modelBuilder.Entity<RoomNight>().HasQueryFilter(e => e.HotelId == _currentTenantService.HotelId);
         modelBuilder.Entity<Payment>().HasQueryFilter(e => e.HotelId == _currentTenantService.HotelId);
+        modelBuilder.Entity<Review>().HasQueryFilter(e => e.HotelId == _currentTenantService.HotelId);
     }
 
     /// <summary>

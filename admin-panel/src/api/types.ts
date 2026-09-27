@@ -31,6 +31,7 @@ export interface Hotel {
   address: string
   phone: string
   email: string
+  description: string
 }
 
 export interface RoomType {
@@ -95,6 +96,8 @@ export interface Reservation {
   totalPrice: number
   paymentDeadline: string | null
   createdAt: string
+  /** Misafirin mobil uygulamada rezervasyonuna eristigi kod */
+  confirmationCode: string | null
   guest: Guest
 }
 

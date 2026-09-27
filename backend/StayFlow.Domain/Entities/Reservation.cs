@@ -12,6 +12,12 @@ public class Reservation : ITenantEntity
 {
     public Guid Id { get; set; } = Guid.NewGuid();
 
+    /// <summary>
+    /// Misafirin rezervasyonuna erisim kodu (ör. "K7M2QX9A"). Misafirin hesabi yok; mobil uygulamada
+    /// "kod + e-posta" ile rezervasyonunu gorur, oder, iptal eder.
+    /// </summary>
+    public string? ConfirmationCode { get; set; }
+
     public Guid HotelId { get; set; }
     public Hotel Hotel { get; set; } = null!;
 

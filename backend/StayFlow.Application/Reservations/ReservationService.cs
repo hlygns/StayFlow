@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using StayFlow.Application.Common;
 using StayFlow.Application.Common.Exceptions;
+using StayFlow.Application.Common.Helpers;
 using StayFlow.Application.Common.Interfaces;
 using StayFlow.Domain.Entities;
 using StayFlow.Domain.Enums;
@@ -98,6 +99,7 @@ public class ReservationService
 
         var reservation = new Reservation
         {
+            ConfirmationCode = ConfirmationCode.New(),
             RoomId = room.Id,
             Guest = guest,
             CheckIn = request.CheckIn,
@@ -124,6 +126,9 @@ public class ReservationService
         }
         catch (DbUpdateException)
         {
+            // Basarisiz eklemeler (rezervasyon, misafir, geceler) hala "eklenecek" olarak izleniyor;
+            // temizlemezsek ayni istekteki sonraki SaveChanges (ör. baska oda denemesi) onlari tekrar ekler.
+            _db.ChangeTracker.Clear();
             // Bu noktada eklenen tek kisitli satirlar RoomNight'lar; on kontrolden sonra
             // baska bir istek ayni geceyi kapmis demektir. Transaction geri alindi, hicbir sey kaydedilmedi.
             // Uyari olarak loglaniyor: canlida bu korumanin kac kez devreye girdigi izlenebilsin.
@@ -139,6 +144,42 @@ public class ReservationService
         await _notifier.ReservationChangedAsync(room.HotelId, reservation.Id, ReservationChange.Created, ct);
 
         return await GetAsync(reservation.Id, ct);
+    }
+
+    /// <summary>
+    /// Misafir belirli bir odayi degil oda tipini secer (mobil uygulama). Bu tipteki bos odalar sirayla
+    /// denenir: iki misafir ayni anda son odalara saldirirsa kaybeden, varsa bir sonraki bos odayi alir.
+    /// Hic oda kalmadiysa 409.
+    /// </summary>
+    public async Task<ReservationDto> CreateForRoomTypeAsync(
+        Guid roomTypeId, DateOnly checkIn, DateOnly checkOut, int guestCount, GuestInput guest, CancellationToken ct = default)
+    {
+        StayDates.Validate(checkIn, checkOut, _timeProvider.Today());
+
+        var candidateRoomIds = await _db.Rooms
+            .Where(r => r.RoomTypeId == roomTypeId && r.IsActive)
+            .Where(r => !_db.RoomNights.Any(rn => rn.RoomId == r.Id && rn.Date >= checkIn && rn.Date < checkOut))
+            .OrderBy(r => r.RoomNumber)
+            .Select(r => r.Id)
+            .Take(5) // en fazla 5 deneme: yogun anda sonsuz donguye girmesin
+            .ToListAsync(ct);
+
+        foreach (var roomId in candidateRoomIds)
+        {
+            try
+            {
+                return await CreateAsync(new CreateReservationRequest
+                {
+                    RoomId = roomId, CheckIn = checkIn, CheckOut = checkOut, GuestCount = guestCount, Guest = guest
+                }, ct);
+            }
+            catch (ConflictException)
+            {
+                // Bu oda az once baskasina satildi: siradaki bos odayi dene
+            }
+        }
+
+        throw new ConflictException("Seçtiğiniz oda tipinde bu tarihler için müsait oda kalmadı.");
     }
 
     public async Task<ReservationDto> ConfirmAsync(Guid id, CancellationToken ct = default)
@@ -264,5 +305,6 @@ public class ReservationService
             r.TotalPrice,
             r.PaymentDeadline,
             r.CreatedAt,
+            r.ConfirmationCode,
             new GuestDto(r.Guest.Id, r.Guest.FullName, r.Guest.Email, r.Guest.Phone)));
 }

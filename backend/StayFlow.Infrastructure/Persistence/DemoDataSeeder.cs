@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using StayFlow.Application.Common;
+using StayFlow.Application.Common.Helpers;
 using StayFlow.Application.Common.Interfaces;
 using StayFlow.Application.Reservations;
 using StayFlow.Domain.Entities;
@@ -58,6 +59,7 @@ public class DemoDataSeeder
             await _db.Database.CreateExecutionStrategy().ExecuteAsync(async () =>
             {
                 await using var transaction = await _db.Database.BeginTransactionAsync(ct);
+                await _db.Reviews.IgnoreQueryFilters().Where(x => x.HotelId == id).ExecuteDeleteAsync(ct);
                 await _db.Payments.IgnoreQueryFilters().Where(x => x.HotelId == id).ExecuteDeleteAsync(ct);
                 await _db.RoomNights.IgnoreQueryFilters().Where(x => x.HotelId == id).ExecuteDeleteAsync(ct);
                 await _db.Reservations.IgnoreQueryFilters().Where(x => x.HotelId == id).ExecuteDeleteAsync(ct);
@@ -97,7 +99,8 @@ public class DemoDataSeeder
             City = "Antalya",
             Address = "Lara Cad. No: 12, Muratpaşa",
             Phone = "0242 000 00 00",
-            Email = "info@stayflow.app"
+            Email = "info@stayflow.app",
+            Description = "Lara plajına 5 dakika yürüme mesafesinde, bahçeli ve havuzlu butik otel. Kahvaltı dahil, ücretsiz otopark."
         };
         _db.Hotels.Add(hotel);
 
@@ -181,6 +184,7 @@ public class DemoDataSeeder
         var prices = room.RoomTypeId == highSeason.RoomTypeId ? [highSeason] : Array.Empty<SeasonalPrice>();
         var reservation = new Reservation
         {
+            ConfirmationCode = ConfirmationCode.New(),
             HotelId = hotelId,
             RoomId = room.Id,
             Guest = guest,

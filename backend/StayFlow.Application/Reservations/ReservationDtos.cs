@@ -35,4 +35,5 @@ public record ReservationDto(
     decimal TotalPrice,
     DateTime? PaymentDeadline,
     DateTime CreatedAt,
+    string? ConfirmationCode,
     GuestDto Guest);
