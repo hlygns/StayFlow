@@ -1,3 +1,4 @@
+import { markChangedLocally } from '../realtime/localChanges'
 import { api, qs } from './client'
 import type {
   AuthResponse,
@@ -95,9 +96,19 @@ export const reservationsApi = {
   list: (filter: { from?: IsoDate; to?: IsoDate; status?: ReservationStatus } = {}) =>
     api.get<Reservation[]>(`/reservations${qs(filter)}`),
   get: (id: string) => api.get<Reservation>(`/reservations/${id}`),
-  create: (input: ReservationInput) => api.post<Reservation>('/reservations', input),
-  confirm: (id: string) => api.post<Reservation>(`/reservations/${id}/confirm`),
-  checkIn: (id: string) => api.post<Reservation>(`/reservations/${id}/check-in`),
-  checkOut: (id: string) => api.post<Reservation>(`/reservations/${id}/check-out`),
-  cancel: (id: string) => api.post<Reservation>(`/reservations/${id}/cancel`),
+  // Bu sekmedeki degisiklikler isaretlenir: sunucudan gelen canli bildirim ayni degisiklik icin tekrar gosterilmesin
+  create: async (input: ReservationInput) => {
+    const reservation = await api.post<Reservation>('/reservations', input)
+    markChangedLocally(reservation.id)
+    return reservation
+  },
+  confirm: (id: string) => changeStatus(id, 'confirm'),
+  checkIn: (id: string) => changeStatus(id, 'check-in'),
+  checkOut: (id: string) => changeStatus(id, 'check-out'),
+  cancel: (id: string) => changeStatus(id, 'cancel'),
+}
+
+function changeStatus(id: string, action: 'confirm' | 'check-in' | 'check-out' | 'cancel') {
+  markChangedLocally(id)
+  return api.post<Reservation>(`/reservations/${id}/${action}`)
 }

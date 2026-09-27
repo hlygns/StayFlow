@@ -4,6 +4,7 @@ import { useState, type ComponentType, type SVGProps } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router'
 import { hotelApi } from '../api/endpoints'
 import { useAuth } from '../auth/AuthContext'
+import { useReservationEvents, type LiveStatus } from '../realtime/useReservationEvents'
 import { BedIcon, CalendarIcon, CogIcon, HomeIcon, ListIcon, LogoutIcon, MenuIcon, TagIcon, UsersIcon } from './icons'
 
 interface NavItem {
@@ -28,6 +29,7 @@ export function Layout() {
   const [menuOpen, setMenuOpen] = useState(false)
   const location = useLocation()
   const { data: hotel } = useQuery({ queryKey: ['hotel'], queryFn: hotelApi.get })
+  const live = useReservationEvents()
 
   // Mobilde bir sayfaya gecince menu kapansin (render sirasinda: ek effect gerekmez).
   const [lastPath, setLastPath] = useState(location.pathname)
@@ -41,6 +43,7 @@ export function Layout() {
       <div className="px-5 pt-6 pb-5">
         <p className="text-lg font-semibold tracking-tight text-white">StayFlow</p>
         <p className="mt-0.5 truncate text-sm text-brand-200/80">{hotel?.name ?? ' '}</p>
+        <LiveIndicator status={live} />
       </div>
       <ul className="flex-1 space-y-0.5 px-3">
         {navItems
@@ -103,5 +106,26 @@ export function Layout() {
         <Outlet />
       </main>
     </div>
+  )
+}
+
+const liveLabels: Record<LiveStatus, string> = {
+  live: 'Canlı: değişiklikler anında görünür',
+  connecting: 'Bağlanıyor…',
+  offline: 'Canlı bağlantı yok, sayfayı yenileyin',
+}
+
+function LiveIndicator({ status }: { status: LiveStatus }) {
+  return (
+    <p className="mt-3 flex items-center gap-2 text-xs text-brand-100/70" role="status">
+      <span
+        className={clsx(
+          'size-2 rounded-full',
+          status === 'live' ? 'bg-emerald-400' : status === 'connecting' ? 'animate-pulse bg-amber-300' : 'bg-red-400',
+        )}
+        aria-hidden="true"
+      />
+      {liveLabels[status]}
+    </p>
   )
 }

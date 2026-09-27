@@ -12,6 +12,8 @@ export default defineConfig({
     // attigini dusunur, CORS ile ugrasmayiz.
     proxy: {
       '/api': 'http://localhost:5182',
+      // SignalR: WebSocket baglantisi da ayni sekilde API'ye gecsin
+      '/hubs': { target: 'http://localhost:5182', ws: true },
     },
   },
   test: {

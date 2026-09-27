@@ -19,12 +19,18 @@ public class ReservationService
     private readonly IApplicationDbContext _db;
     private readonly TimeProvider _timeProvider;
     private readonly ILogger<ReservationService> _logger;
+    private readonly IReservationNotifier _notifier;
 
-    public ReservationService(IApplicationDbContext db, TimeProvider timeProvider, ILogger<ReservationService>? logger = null)
+    public ReservationService(
+        IApplicationDbContext db,
+        TimeProvider timeProvider,
+        ILogger<ReservationService>? logger = null,
+        IReservationNotifier? notifier = null)
     {
         _db = db;
         _timeProvider = timeProvider;
         _logger = logger ?? NullLogger<ReservationService>.Instance;
+        _notifier = notifier ?? NullReservationNotifier.Instance;
     }
 
     public async Task<List<ReservationDto>> GetAllAsync(
@@ -130,6 +136,7 @@ public class ReservationService
         _logger.LogInformation(
             "Rezervasyon olusturuldu {ReservationId}: oda {RoomNumber}, {CheckIn} - {CheckOut}, {TotalPrice} TL",
             reservation.Id, room.RoomNumber, reservation.CheckIn, reservation.CheckOut, reservation.TotalPrice);
+        await _notifier.ReservationChangedAsync(room.HotelId, reservation.Id, ReservationChange.Created, ct);
 
         return await GetAsync(reservation.Id, ct);
     }
@@ -146,6 +153,7 @@ public class ReservationService
         reservation.Status = ReservationStatus.Confirmed;
         reservation.PaymentDeadline = null;
         await _db.SaveChangesAsync(ct);
+        await _notifier.ReservationChangedAsync(reservation.HotelId, reservation.Id, ReservationChange.Confirmed, ct);
 
         return await GetAsync(id, ct);
     }
@@ -171,6 +179,7 @@ public class ReservationService
 
         reservation.Status = ReservationStatus.CheckedIn;
         await _db.SaveChangesAsync(ct);
+        await _notifier.ReservationChangedAsync(reservation.HotelId, reservation.Id, ReservationChange.CheckedIn, ct);
 
         return await GetAsync(id, ct);
     }
@@ -201,6 +210,7 @@ public class ReservationService
 
         reservation.Status = ReservationStatus.CheckedOut;
         await _db.SaveChangesAsync(ct);
+        await _notifier.ReservationChangedAsync(reservation.HotelId, reservation.Id, ReservationChange.CheckedOut, ct);
 
         return await GetAsync(id, ct);
     }
@@ -227,6 +237,7 @@ public class ReservationService
         _db.RoomNights.RemoveRange(reservation.RoomNights);
         await _db.SaveChangesAsync(ct);
         _logger.LogInformation("Rezervasyon iptal edildi {ReservationId}", reservation.Id);
+        await _notifier.ReservationChangedAsync(reservation.HotelId, reservation.Id, ReservationChange.Cancelled, ct);
 
         return await GetAsync(id, ct);
     }

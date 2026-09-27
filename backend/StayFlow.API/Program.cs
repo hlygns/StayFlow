@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Scalar.AspNetCore;
 using StayFlow.API.Infrastructure;
+using StayFlow.API.Realtime;
 using StayFlow.API.Services;
 using StayFlow.Application;
 using StayFlow.Application.Common.Interfaces;
@@ -85,8 +86,28 @@ builder.Services
             NameClaimType = "name",
             RoleClaimType = "role"
         };
+
+        // WebSocket baglantisinda tarayici Authorization basligi gonderemez; SignalR token'i
+        // ?access_token=... ile iletir. Bunu SADECE hub adresinde kabul ediyoruz.
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                var token = context.Request.Query["access_token"];
+                if (!string.IsNullOrEmpty(token) && context.HttpContext.Request.Path.StartsWithSegments(ReservationsHub.Path))
+                {
+                    context.Token = token;
+                }
+                return Task.CompletedTask;
+            }
+        };
     });
 builder.Services.AddAuthorization();
+
+// Canli bildirimler (SignalR). Application'daki varsayilan "bildirim yok" kaydinin yerine gecer.
+builder.Services.AddSignalR()
+    .AddJsonProtocol(o => o.PayloadSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter()));
+builder.Services.AddSingleton<IReservationNotifier, SignalRReservationNotifier>();
 builder.Services.AddStayFlowRateLimiting(builder.Configuration);
 
 // React yonetim paneli (2. hafta) farkli bir porttan istek atacak. Izinli adresler config'ten gelir.
@@ -151,6 +172,7 @@ app.UseAuthorization();
 
 app.MapControllers();
 app.MapStayFlowHealthChecks();
+app.MapHub<ReservationsHub>(ReservationsHub.Path);
 
 app.Run();
 
