@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { Link } from 'expo-router'
+import { router } from 'expo-router'
 import { useEffect, useState } from 'react'
 import { FlatList, Pressable, Text, TextInput, View } from 'react-native'
 import { publicApi } from '../../api/client'
@@ -10,8 +10,12 @@ import { colors, radius, space } from '../../lib/theme'
 
 function HotelCard({ hotel }: { hotel: HotelSummary }) {
   return (
-    <Link href={{ pathname: '/hotel/[slug]', params: { slug: hotel.slug } }} asChild>
-      <Pressable accessibilityRole="link" style={({ pressed }) => [styles.card, { gap: space(2) }, pressed && { opacity: 0.9 }]}>
+    // Not: <Link asChild> web'de Pressable'in stil fonksiyonunu uygulamiyor (kart arka plani kayboluyordu)
+    <Pressable
+      accessibilityRole="button"
+      onPress={() => router.push({ pathname: '/hotel/[slug]', params: { slug: hotel.slug } })}
+      style={({ pressed }) => [styles.card, { gap: space(2) }, pressed && { opacity: 0.9 }]}
+    >
         {/* Fotograf yuklemesi olmadigi icin marka renginde bir kapak: otelin bas harfi */}
         <View
           style={{
@@ -50,8 +54,7 @@ function HotelCard({ hotel }: { hotel: HotelSummary }) {
             </Text>
           )}
         </View>
-      </Pressable>
-    </Link>
+    </Pressable>
   )
 }
 

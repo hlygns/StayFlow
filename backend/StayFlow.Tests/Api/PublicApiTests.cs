@@ -85,6 +85,19 @@ public class PublicApiTests : IClassFixture<StayFlowApiFactory>
     }
 
     [Fact]
+    public async Task Zamanlar_UTC_isaretiyle_doner_istemci_yerel_saat_sanmaz()
+    {
+        // Onceki hata: "2026-09-27T10:15:26" (Z yok) -> telefon/tarayici yerel saat sanip 3 saat kaydiriyordu
+        var (_, slug, type, _) = await HotelWithRoomsAsync(1);
+        var guest = _factory.CreateBrowserLikeClient();
+        var booked = await (await guest.PostAsJsonAsync($"/api/public/hotels/{slug}/reservations", Booking(type.Id))).Content.ReadFromJsonAsync<GuestReservation>(TestJson.Options);
+
+        var json = await (await guest.PostAsJsonAsync($"/api/public/reservations/{booked!.ConfirmationCode}", new { email = "ayse@test.com" })).Content.ReadAsStringAsync();
+
+        Assert.Matches("\"paymentDeadline\":\"[^\"]+Z\"", json);
+    }
+
+    [Fact]
     public async Task Kod_dogru_ama_eposta_yanlissa_rezervasyon_gosterilmez()
     {
         var (_, slug, type, _) = await HotelWithRoomsAsync(1);

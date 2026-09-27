@@ -31,6 +31,22 @@ public class StayFlowDbContext : DbContext, IApplicationDbContext
     public DbSet<Payment> Payments => Set<Payment>();
     public DbSet<Review> Reviews => Set<Review>();
 
+    /// <summary>
+    /// Tum DateTime alanlari UTC yazilir. Ama SQL Server datetime2 saat dilimi bilgisi tutmaz: EF okurken
+    /// Kind=Unspecified verir ve JSON'a sonunda "Z" olmadan yazilir ("2026-09-27T10:15:26"). Tarayici ve
+    /// telefon bunu YEREL saat sanar - Turkiye'de 3 saat kayar (ör. odeme suresi "dolmus" gorunur).
+    /// Burada okunan her DateTime'i UTC olarak isaretliyoruz; JSON'da "...Z" olarak cikar.
+    /// </summary>
+    protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
+    {
+        configurationBuilder.Properties<DateTime>().HaveConversion<UtcDateTimeConverter>();
+        configurationBuilder.Properties<DateTime?>().HaveConversion<UtcDateTimeConverter>();
+    }
+
+    private sealed class UtcDateTimeConverter() : Microsoft.EntityFrameworkCore.Storage.ValueConversion.ValueConverter<DateTime, DateTime>(
+        toDb => toDb.Kind == DateTimeKind.Utc ? toDb : toDb.ToUniversalTime(),
+        fromDb => DateTime.SpecifyKind(fromDb, DateTimeKind.Utc));
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
