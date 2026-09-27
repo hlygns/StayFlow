@@ -1,166 +1,224 @@
 # StayFlow
 
 Butik oteller ve pansiyonlar için çok kiracılı (multi-tenant) rezervasyon ve misafir yönetim sistemi.
-Her otel kendi hesabıyla sisteme kaydolur; odalarını, fiyatlarını ve rezervasyonlarını yönetir ve yalnızca kendi verisini görür.
+Üç parçadan oluşur:
 
-> Durum: **Faz 1 ve Faz 2 tamamlandı**: backend, React yönetim paneli, Docker, CI/CD, arka plan işleri, gerçek zamanlı bildirimler, Redis önbellek.
-> Canlı yayın için sunucu kurulumu [docs/deploy.md](docs/deploy.md) rehberinde.
+- **Otel paneli** (React): Oteller kaydolur; odalarını, fiyatlarını, rezervasyonlarını ve yorumlarını yönetir.
+- **Misafir uygulaması** (React Native): Misafir otel arar, rezervasyon yapar, öder ve yorum yazar.
+- **API** (.NET 10): Her otel yalnızca kendi verisini görür.
 
 ![Rezervasyon takvimi](docs/screenshots/calendar.png)
 
-## Teknolojiler
-
-- **Backend:** .NET 10 · ASP.NET Core Web API · EF Core 10 · SQL Server · JWT + refresh token · xUnit
-- **Arka plan ve gerçek zamanlı:** Hangfire · SignalR · Redis · MailKit (SMTP) · Serilog
-- **Altyapı:** Docker · Docker Compose · Nginx · GitHub Actions (CI + deploy) · GitHub Container Registry · Testcontainers
-- **Yönetim paneli:** React 19 · TypeScript · Vite · Tailwind CSS v4 · TanStack Query · React Router · React Hook Form + Zod · Vitest + Testing Library
-
-## Yönetim paneli
-
-| Genel bakış | Yeni rezervasyon |
-|---|---|
-| ![Genel bakış](docs/screenshots/dashboard.png) | ![Yeni rezervasyon](docs/screenshots/new-reservation.png) |
-
-- **Genel bakış:** bu geceki doluluk, bugünkü giriş/çıkışlar, ödeme bekleyenler ve önümüzdeki 7 gecenin doluluk grafiği.
-- **Takvim:** odalar × geceler tablosu. Bloğa tıklayınca rezervasyon detayı (onayla / iptal et) açılır, boş hücreye tıklayınca o oda ve tarih için rezervasyon başlar.
-- **Yeni rezervasyon:** tarih ve kişi sayısı girilince müsait oda tipleri toplam fiyatla listelenir. Siz formu doldururken oda başkasına satılırsa backend 409 döner; panel müsaitliği yenileyip yeni oda seçtirir.
-- **Oda tipleri, sezon fiyatları, odalar, personel, otel ayarları.** Resepsiyon rolü oda ve fiyat ekranlarını salt okunur görür; personel ve ayarlar menüsü ona hiç görünmez.
-- **Oturum:** Sayfa yenilenince oturum cookie ile sessizce geri yüklenir. Access token süresi dolunca istek otomatik olarak yenilenip tekrarlanır. Aynı anda birden çok istek 401 alırsa tek bir refresh yapılır; backend refresh token'ı her kullanımda değiştirdiği için paralel refresh'ler birbirini geçersiz kılardı.
-
-## Öne çıkan mühendislik problemi: çifte rezervasyon
-
-İki misafir aynı anda aynı odayı aynı tarihler için ayırtmaya çalışırsa ne olur?
-"Önce kontrol et, sonra kaydet" yaklaşımı tek başına yetmez: iki istek de kontrolü aynı anda geçip ikisi de kaydedebilir.
-
-StayFlow'da her dolu gece `RoomNights` tablosunda bir satırdır ve `(RoomId, Date)` üzerinde **unique index** vardır.
-Rezervasyon ve tüm geceleri tek transaction'da yazılır. Böylece yarışı kaybeden istek veritabanı seviyesinde reddedilir ve geriye hiçbir satırı kalmaz.
-Uygulamadaki ön kontrol yalnızca kullanıcıya hızlı ve anlaşılır bir hata vermek içindir; asıl garanti veritabanındadır.
-
-Bu davranış iki şekilde doğrulandı:
-
-- **Otomatik test** (`ReservationServiceTests.Es_zamanli_iki_istekten_sadece_biri_basarili_olur`): Bir EF Core interceptor'ı, ön kontrol ile kayıt arasına rakip bir rezervasyon sokar. Unique index ikinci isteği reddeder ve 409 döner.
-- **Gerçek SQL Server** (Testcontainers, her CI çalışmasında): Aynı oda için 30 gerçekten paralel HTTP isteği gönderiliyor. Sonuç tam olarak 1 × `201 Created` ve 29 × `409 Conflict`; veritabanında tek rezervasyon ve kaybedenlerden hiçbir artık kayıt kalmıyor. Farklı odalara paralel rezervasyonlar ise birbirini engellemiyor.
-- **Docker'daki sistem** (`scripts/smoke_test.py`): 20 eşzamanlı istek Nginx → API → SQL Server yolundan geçiyor. Loglarda, ön kontrolü geçen ama unique index'e takılan istekler `Cifte rezervasyon veritabani kisitiyla engellendi` uyarısıyla görülüyor.
-
-İptal edilen rezervasyonun `RoomNights` satırları silinir; o geceler yeniden satışa açılır.
-
-## Arka plan işleri ve gerçek zamanlı güncellemeler
-
-| | Ne yapar |
-|---|---|
-| **Hangfire** | Her dakika: 15 dakikalık ödeme süresi dolan "Ödeme bekliyor" rezervasyonları iptal eder ve gecelerini satışa açar. Her sabah 10:00: yarın gelecek misafirlere hatırlatma e-postası (tekrar çalışsa bile bir kez). Her akşam 22:00: otel sahibine gün sonu raporu. Saatler otelin saat dilimine (İstanbul) göre çalışır. |
-| **SignalR** | Başka bir resepsiyon çalışanının rezervasyonu ya da otomatik iptal, açık olan panellerde sayfa yenilemeden görünür. Her bağlantı yalnızca kendi otelinin grubuna katılır; grup JWT'den okunur. |
-| **Redis** | Müsaitlik sonuçları otel başına "sürüm anahtarı" ile önbelleğe alınır. Oda, fiyat ya da rezervasyon kaydedildiğinde `SaveChanges` sürümü değiştirir; eski sonuçlar bir daha okunmaz. Redis çökerse arama önbelleksiz çalışmaya devam eder. |
-| **Serilog** | Container'da tek satır JSON log. Her isteğin `X-Correlation-Id`'si hem cevap başlığında hem hata gövdesinde döner; kullanıcı hata kodunu iletince o isteğin tüm logları tek aramayla bulunur. |
+| Misafir uygulaması: keşfet | Otel ve müsaitlik | Ödeme (15 dk süre) | Onaylandı |
+|---|---|---|---|
+| ![Keşfet](docs/screenshots/mobile-explore.png) | ![Otel](docs/screenshots/mobile-hotel.png) | ![Ödeme](docs/screenshots/mobile-payment.png) | ![Onay](docs/screenshots/mobile-confirmed.png) |
 
 ## Mimari
 
-```
-backend/
-├── StayFlow.Domain          → Entity'ler (Hotel, Room, Reservation, RoomNight...) ve enum'lar
-├── StayFlow.Application     → Servisler, DTO'lar, iş kuralları, IApplicationDbContext
-├── StayFlow.Infrastructure  → EF Core DbContext, migration'lar, şifre hashleme
-├── StayFlow.API             → Controller'lar, JWT, hata yönetimi (ProblemDetails), deneme sınırı
-└── StayFlow.Tests           → xUnit: servis testleri + WebApplicationFactory ile HTTP entegrasyon testleri (SQLite in-memory)
-admin-panel/
-├── src/api                  → Tipli API istemcisi, token yenileme, DTO tipleri
-├── src/auth                 → Oturum context'i, korumalı rotalar
-├── src/components           → Layout ve paylaşılan UI bileşenleri
-└── src/pages                → Ekranlar (takvim, rezervasyonlar, odalar...)
+```mermaid
+flowchart LR
+    subgraph clients[İstemciler]
+        panel["Otel paneli<br/>React + TypeScript"]
+        mobile["Misafir uygulaması<br/>React Native (Expo)"]
+    end
+    nginx["Nginx<br/>HTTPS"]
+    api["ASP.NET Core API<br/>.NET 10"]
+    db[("SQL Server")]
+    redis[("Redis<br/>müsaitlik önbelleği")]
+    jobs["Hangfire<br/>zamanlanmış işler"]
+    hub["SignalR hub<br/>otel başına grup"]
+    push["Expo Push"]
+    ai["Claude API<br/>yorum özeti"]
+    smtp["SMTP<br/>e-posta"]
+
+    panel -- "REST + WebSocket" --> nginx
+    mobile -- "REST /api/public" --> nginx
+    nginx --> api
+    api --> db
+    api --> redis
+    api --- jobs
+    api --- hub
+    hub -. "canlı güncelleme" .-> panel
+    api --> push -. "bildirim" .-> mobile
+    api --> ai
+    jobs --> smtp
 ```
 
-- **Multi-tenancy:** Her tenant entity'si `ITenantEntity` uygular. EF Core global query filter'ları, sorguları JWT'deki `hotelId` claim'ine göre otomatik filtreler. Tenant bilgisi yoksa hiçbir satır dönmez (fail-closed). Yeni kayıtlara `HotelId` otomatik atanır.
-- **Başka otelin verisine erişim** 404 döner: filtre kaydı tamamen gizler, var olduğu bile sızmaz.
-- **Kimlik doğrulama:** Kısa ömürlü access token (15 dk, yalnızca bellekte) ve refresh token (7 gün, `HttpOnly` + `Secure` + `SameSite=Strict` cookie). JavaScript refresh token'a hiç erişemez; bu yüzden bir XSS açığı onu çalamaz. Refresh token'lar veritabanında hash'lenmiş tutulur ve her kullanımda yenilenir (rotation). Aynı tarayıcıdaki iki sekme aynı anda yenileme yaparsa biri oturumdan düşmesin diye, bir önceki token 30 saniye daha kabul edilir.
-- **Kaba kuvvet koruması:** Giriş ve kayıt uçlarında IP başına dakikada 20 deneme sınırı vardır (aşılırsa `429`). Uygulama `.env.example`'daki örnek JWT anahtarıyla başlamayı reddeder.
-- **Roller:** `Owner` (otel sahibi: oda, fiyat, personel yönetimi) ve `Reception` (rezervasyon işlemleri).
+```
+backend/
+├── StayFlow.Domain          → Entity'ler (Hotel, Room, Reservation, RoomNight, Review...) - bağımlılığı yok
+├── StayFlow.Application     → İş kuralları, servisler, DTO'lar, arka plan işlerinin mantığı, arayüzler
+├── StayFlow.Infrastructure  → EF Core + migration'lar, e-posta, Claude, Expo push, demo verisi
+├── StayFlow.API             → Controller'lar, JWT, SignalR hub, Hangfire, loglama, deneme sınırları
+└── StayFlow.Tests           → xUnit: servis, HTTP entegrasyon ve Testcontainers testleri
+admin-panel/                 → React 19 + Vite + Tailwind + TanStack Query
+mobile/                      → Expo SDK 57 + Expo Router (iOS, Android, web)
+scripts/smoke_test.py        → Çalışan sisteme karşı uçtan uca test (CI'da da koşar)
+```
+
+Bağımlılıklar içe doğru akar. Örneğin Application katmanı SignalR'ı, Claude'u ya da Expo'yu bilmez;
+yalnızca `IReservationNotifier` ve `IReviewAssistant` gibi arayüzleri bilir.
+
+## Öne çıkan mühendislik problemleri
+
+### 1. Çifte rezervasyon
+İki misafir aynı anda aynı odayı aynı tarihler için ayırtmaya çalışırsa ne olur? "Önce kontrol et, sonra kaydet" yaklaşımı yetmez:
+iki istek de kontrolü aynı anda geçip ikisi de kaydedebilir.
+
+StayFlow'da her dolu gece `RoomNights` tablosunda bir satırdır ve `(RoomId, Date)` üzerinde **unique index** vardır.
+Rezervasyon ve tüm geceleri tek transaction'da yazılır. Yarışı kaybeden istek veritabanı tarafından reddedilir, geriye hiçbir satırı kalmaz ve kullanıcıya `409` döner.
+Uygulamadaki ön kontrol yalnızca hızlı ve anlaşılır bir hata vermek içindir; asıl garanti veritabanındadır.
+
+Bu davranış üç ayrı yoldan doğrulandı:
+- **Gerçek SQL Server (Testcontainers, her CI'da):** Aynı oda için 30 gerçekten paralel HTTP isteği gönderiliyor. Sonuç tam olarak 1 × `201` ve 29 × `409`; kaybedenlerden hiçbir artık kayıt kalmıyor. Farklı odalara paralel rezervasyonlar ise birbirini engellemiyor.
+- **Deterministik yarış testi:** Bir EF Core interceptor'ı, ön kontrol ile kayıt arasına rakip bir rezervasyon sokuyor ([ReservationServiceTests](backend/StayFlow.Tests/Reservations/ReservationServiceTests.cs)).
+- **Mobil uygulama:** Misafir oda değil oda *tipi* seçer. Aynı anda son odalara talip olan misafirler için boş odalar sırayla denenir; yarışı kaybeden misafir bir sonraki boş odayı alır.
+
+### 2. Çok kiracılık (multi-tenancy)
+- EF Core global query filter'ları her sorguya JWT'deki `hotelId`'yi otomatik ekler. Tenant bilgisi yoksa hiçbir satır dönmez (fail-closed).
+- Başka otelin kaydına erişim `404` döner; kaydın var olduğu bile sızmaz.
+- SignalR bağlantıları yalnızca kendi otelinin grubuna katılır. Grup adı istemciden değil, imzalı token'dan gelir.
+
+### 3. Önbellek geçersiz kılma
+Müsaitlik sonuçları Redis'te, otel başına bir **sürüm anahtarı** ile tutulur.
+- Oda, fiyat ya da rezervasyon `SaveChanges` ile kaydedildiğinde sürüm değişir ve eski sonuçlar bir daha okunmaz.
+- Geçersiz kılma tek bir yerde olduğu için yeni kod yazan biri onu unutamaz.
+- Redis çökerse arama önbelleksiz çalışmaya devam eder.
+
+### 4. Zaman
+- **"Bugün" otelin saat dilimine göre hesaplanır.** UTC ile, Antalya'da gece 01:00'de gelen misafirin check-in'i "dün" sayılıp reddediliyordu.
+- **Tüm zamanlar sonunda `Z` ile döner.** SQL Server'dan okunan zamanlar önce işaretsiz geliyordu; telefon bunları yerel saat sanıp 3 saat kaydırıyor ve yeni bir rezervasyonun ödeme süresi "dolmuş" görünüyordu.
+- Her iki hata da testle kilitlendi.
+
+### 5. Testlerin yakaladığı hatalardan birkaçı
+- **Demo sıfırlama:** SQL Server'ın "tekrar dene" stratejisi elle açılan transaction'a izin vermiyor; SQLite testleri bunu göremiyordu. Testcontainers testi yakaladı.
+- **Deploy sonrası 502:** Nginx API adresini yalnızca açılışta çözümlüyordu; her API deploy'undan sonra 502 veriyordu.
+- **Kaybolan correlation id:** Hata cevaplarında correlation id başlığı kayboluyordu, çünkü exception handler başlıkları temizliyor.
+
+## Özellikler
+
+**Otel paneli**
+- **Genel bakış:** Doluluk, bugünkü giriş ve çıkışlar, 7 gecelik doluluk grafiği.
+- **Rezervasyon takvimi:** Odalar × geceler tablosu.
+- **Rezervasyon işlemleri:** Rezervasyon akışı, onay, check-in, check-out (erken çıkışta kalan geceler satışa açılır), iptal.
+- **Oda ve fiyat yönetimi:** Oda tipleri, sezon fiyatları, odalar.
+- **Yorumlar:** Puan dağılımı, yanıt yazma, yorum gizleme.
+- **Personel ve roller:** `Owner` her şeyi yönetir, `Reception` rezervasyonları yönetir.
+- **Canlı güncelleme:** Başka bir çalışanın ya da misafirin rezervasyonu, sayfa yenilemeden takvime ve bildirimlere düşer.
+
+**Misafir uygulaması** (hesap gerekmez; rezervasyona 8 karakterlik kod + e-posta ile erişilir)
+- Şehre göre otel arama; puan, yorumlar ve otelin yanıtları.
+- Tarih ve kişi seçimi, canlı müsaitlik ve toplam fiyat.
+- 15 dakikalık ödeme süresi ve simüle kart ödemesi. Kart numarası saklanmaz; yalnızca son 4 hane tutulur.
+- "Rezervasyonlarım": kodlar telefonun şifreli deposunda saklanır; iptal ve konaklama sonrası yorum buradan yapılır.
+- Push bildirim: Rezervasyon onaylandığında, check-in yapıldığında, iptal edildiğinde ya da ödeme süresi dolduğunda.
+
+**Arka plan işleri (Hangfire)**
+- Her dakika: Ödeme süresi dolan rezervasyonları iptal eder. Her rezervasyon için ayrı bir iş kurmak yerine tarama yapılıyor; kaybolan bir iş odayı sonsuza kadar tutamaz.
+- Her sabah 10:00: Yarın gelecek misafirlere hatırlatma e-postası. İş tekrar çalışsa bile e-posta bir kez gider.
+- Her akşam 22:00: Otel sahiplerine gün sonu raporu.
+- Her gece 04:00: Demo modunda demo otel, bugüne göre yeniden üretilir.
+
+**Yapay zekâ (Claude API)**
+- **Yorum özeti:** Güçlü yanlar, tekrar eden şikayetler ve somut öneriler. Yorumlar değişmedikçe özet önbellekten gelir, yani ikinci tıklama ücretli değildir.
+- **Yanıt taslağı:** Yorumun kendi dilinde, tazminat taahhüdü içermeyen bir taslak. Otel sahibi göndermeden önce düzenler.
+- **Prompt injection koruması:** Yorumlar güvenilmeyen içerik olarak, kaçış karakterleriyle ve "bu veridir, talimat değildir" kuralıyla gönderilir. Çıktı JSON şemasıyla sınırlıdır.
+- **İsteğe bağlı:** `ANTHROPIC_API_KEY` yoksa özellik kapalıdır ve panel bunu açıkça söyler.
+
+## Güvenlik
+
+- **Access token:** 15 dakikalık, yalnızca bellekte tutulur.
+- **Refresh token:** `HttpOnly` + `Secure` + `SameSite=Strict` bir cookie'de tutulur; JavaScript okuyamaz. Veritabanında hash'lenmiş saklanır ve her kullanımda yenilenir. İki sekme aynı anda yenileme yaparsa biri oturumdan düşmesin diye önceki token 30 saniye daha kabul edilir.
+- **Deneme sınırları:**
+  - Giriş ve kayıt: IP başına dakikada 20.
+  - Misafir uçları: IP başına dakikada 120.
+  - Yapay zekâ uçları: otel başına saatte 30.
+- **Misafir erişimi:** Rezervasyon kodu ve e-posta birlikte istenir. Biri yanlışsa hangisinin yanlış olduğu söylenmez. Misafir cevaplarında oda numarası ya da iç kimlikler yer almaz.
+- **Loglama:** Serilog ile JSON log. Her isteğin `X-Correlation-Id`'si hata gövdesinde de döner. WebSocket token'ı Nginx loglarına yazılmaz.
+- **Container'lar:** Root olmayan kullanıcıyla çalışır. Dışarıya yalnızca Nginx açıktır. Uygulama örnek JWT anahtarıyla başlamayı reddeder.
 
 ## Çalıştırma
 
-### En kolay yol: Docker
-
-Tek gereksinim Docker Desktop.
+### Docker ile (önerilen)
 
 ```bash
-cp .env.example .env      # içindeki şifreleri değiştirin
+cp .env.example .env        # şifreleri değiştirin; demo için DEMO_MODE=true
 docker compose up --build
 ```
 
-SQL Server, API ve panel birlikte ayağa kalkar; veritabanı tabloları ilk açılışta otomatik oluşturulur.
-Panel `http://localhost:8080` adresinde açılır.
+| Adres | Ne |
+|---|---|
+| http://localhost:8080 | Otel paneli. Demo modunda **"Demo hesabıyla dene"** (`demo@stayflow.app` / `Demo1234!`) |
+| http://localhost:8025 | Mailpit: gönderilen e-postalar (hatırlatma, rapor, onay) |
 
-**Demo modu:** `.env` içinde `DEMO_MODE=true` yapılırsa ilk açılışta "Lara Butik Otel (Demo)" oluşturulur. Bu otelde
-12 oda, sezon fiyatı ve bugüne göre dağıtılmış yaklaşık iki aylık rezervasyon bulunur: konaklayanlar, bugün gelecekler, gelecek rezervasyonlar ve iptaller.
-Giriş ekranında **"Demo hesabıyla dene"** butonu çıkar (`demo@stayflow.app` / `Demo1234!`).
+SQL Server, Redis, API, panel ve Mailpit birlikte ayağa kalkar; veritabanı ilk açılışta oluşturulur.
 
-![Giriş ekranı](docs/screenshots/login.png)
+### Misafir uygulaması
 
-### Geliştirme ortamı
+```bash
+cd mobile
+npm install
+npx expo start              # telefonda Expo Go ile QR kodu okutun, ya da "w" ile tarayıcıda açın
+```
 
-Gereksinimler: .NET 10 SDK ve SQL Server LocalDB (Visual Studio ile birlikte gelir) ya da herhangi bir SQL Server.
+Telefonda denerken `mobile/.env.local` içindeki `EXPO_PUBLIC_API_URL` değerini bilgisayarın yerel IP'si yapın (ör. `http://192.168.1.20:8080/api`).
+Push bildirimleri için uygulamanın bir EAS projesine bağlanması gerekir (`npx eas-cli init`).
+
+### Geliştirme ortamı (Docker'sız)
 
 ```bash
 cd backend
-dotnet tool install --global dotnet-ef   # bir kere
 dotnet ef database update -p StayFlow.Infrastructure -s StayFlow.API
-dotnet run --project StayFlow.API --launch-profile http
+dotnet run --project StayFlow.API --launch-profile http     # http://localhost:5182, API dokümanı: /scalar, Hangfire: /hangfire
+
+cd admin-panel && npm install && npm run dev                  # http://localhost:5173
 ```
 
-API `http://localhost:5182` adresinde açılır. Etkileşimli API dokümantasyonu `http://localhost:5182/scalar` adresindedir. Örnek istekler [StayFlow.API.http](backend/StayFlow.API/StayFlow.API.http) dosyasındadır.
+## Testler
 
-> `appsettings.Development.json` içindeki JWT anahtarı yalnızca yerel geliştirme içindir.
-> Canlı ortamda anahtar `Jwt__SecretKey` ortam değişkeniyle verilmelidir (en az 32 karakter).
+| | Kapsam | Sayı |
+|---|---|---|
+| `cd backend && dotnet test` | Servisler, HTTP entegrasyon (roller, cookie, 409/429), SignalR, arka plan işleri, push, yapay zekâ sözleşmesi, **Testcontainers ile gerçek SQL Server + Redis** (Docker gerekir) | 89 |
+| `cd admin-panel && npm test` | Takvim yerleşimi, genel bakış hesapları, token yenileme (tek refresh), giriş formu | 16 |
+| `cd mobile && npm test` | Tarih hesapları (ay, artık yıl, yaz saati), kart biçimlendirme, kayıtlı rezervasyonlar | 7 |
+| `python scripts/smoke_test.py` | Çalışan sisteme karşı 45 kontrol: 20 eşzamanlı rezervasyon, rotation, deneme sınırı, check-in/out, önbellek | |
 
-Yönetim paneli (Node.js 20+; API çalışırken ayrı bir terminalde):
-
-```bash
-cd admin-panel
-npm install
-npm run dev
-```
-
-Panel `http://localhost:5173` adresinde açılır; `/api` istekleri Vite üzerinden API'ye yönlendirilir.
-"Ücretsiz kaydolun" bağlantısıyla bir otel oluşturup başlayabilirsiniz.
-
-Testler:
-
-```bash
-cd backend && dotnet test          # 66 test: servis, HTTP entegrasyon, SignalR, arka plan işleri, Testcontainers (Docker gerekir)
-cd admin-panel && npm test         # 15 test
-python scripts/smoke_test.py       # çalışan sisteme karşı uçtan uca test (Docker: localhost:8080)
-```
+Bazı kritik testler "mutasyon" ile de kontrol edildi: korunan kod geçici olarak bozulup testin gerçekten başarısız olduğu görüldü.
 
 ## CI/CD
 
-- **CI** ([ci.yml](.github/workflows/ci.yml)): Her push'ta backend ve frontend testleri paralel çalışır. İkisi de geçerse
-  sistem Docker Compose ile ayağa kaldırılır ve [smoke_test.py](scripts/smoke_test.py) gerçek SQL Server'a karşı
-  çalışır. Bu testin en önemli kontrolü, aynı oda için 20 eşzamanlı rezervasyondan tam olarak birinin kazanmasıdır.
-- **Deploy** ([deploy.yml](.github/workflows/deploy.yml)): CI `main`/`master` dalında geçerse imajlar `ghcr.io`'ya yüklenir,
-  sunucuya SSH ile bağlanılır ve yeni sürüm sağlık kontrolünden geçene kadar beklenir. Kurulum: [docs/deploy.md](docs/deploy.md).
+- **CI** ([ci.yml](.github/workflows/ci.yml)):
+  - Backend, panel ve mobil testleri paralel çalışır.
+  - Hepsi geçerse tüm sistem Docker Compose ile kurulur ve smoke test gerçek SQL Server'a karşı koşar.
+- **Deploy** ([deploy.yml](.github/workflows/deploy.yml)):
+  - CI geçince image'lar `ghcr.io`'ya yüklenir.
+  - Sunucuya SSH ile bağlanılır ve yeni sürüm `/health` sağlıklı dönene kadar beklenir.
+  - Kurulum rehberi: [docs/deploy.md](docs/deploy.md).
 
 ## API
 
-| Metot | Yol | Yetki |
+Tam liste `/scalar` adresindeki etkileşimli dokümanda. Özet:
+
+| Grup | Uçlar | Kim |
 |---|---|---|
-| POST | `/api/auth/register` · `/login` · `/refresh` | Herkes |
-| POST | `/api/auth/logout` | Giriş yapmış |
-| GET / PUT | `/api/hotel` | Personel / Owner |
-| GET / POST | `/api/users` | Owner |
-| GET / POST / PUT / DELETE | `/api/room-types` | Okuma: personel, yazma: Owner |
-| GET / POST / PUT / DELETE | `/api/room-types/{id}/seasonal-prices` | Okuma: personel, yazma: Owner |
-| GET / POST / PUT / DELETE | `/api/rooms` (DELETE = pasife alma) | Okuma: personel, yazma: Owner |
-| GET | `/api/availability?checkIn=&checkOut=&guests=` | Personel |
-| GET / POST | `/api/reservations` | Personel |
-| POST | `/api/reservations/{id}/confirm` · `/check-in` · `/check-out` · `/cancel` | Personel |
+| Kimlik | `POST /api/auth/register · login · refresh · logout` | Herkes |
+| Otel ve personel | `/api/hotel`, `/api/users` | Personel / Owner |
+| Odalar ve fiyatlar | `/api/room-types`, `/api/room-types/{id}/seasonal-prices`, `/api/rooms` | Okuma: personel, yazma: Owner |
+| Rezervasyon | `/api/availability`, `/api/reservations` + `/confirm · /check-in · /check-out · /cancel` | Personel |
+| Yorumlar | `/api/reviews`, `/summary`, `/insights` (yapay zekâ), `/{id}/reply · /suggest-reply · /visibility` | Personel / Owner |
+| Misafir | `/api/public/hotels`, `/{slug}`, `/availability`, `/reviews`, `/reservations`; `/api/public/reservations/{code}` + `/pay · /cancel · /review · /push-token` | Oturumsuz (kod + e-posta) |
+| Canlı | `/hubs/reservations` (SignalR) | Personel |
 
-Hatalar RFC 7807 `ProblemDetails` formatında döner: 400 (doğrulama), 401, 403, 404, 409 (çakışma).
+Hatalar RFC 7807 `ProblemDetails` formatında döner: 400, 401, 403, 404, 409, 429 ve 503 (isteğe bağlı özellik kapalı).
 
-## Yol haritası
+## Durum ve sınırlar
 
-- [x] **1. hafta:** Auth ve roller, multi-tenancy, oda tipi/oda/sezon fiyatı, müsaitlik, rezervasyon ve çifte rezervasyon koruması, testler
-- [x] **2. hafta:** React + TypeScript yönetim paneli: genel bakış, rezervasyon takvimi, rezervasyon akışı, oda/fiyat/personel yönetimi, testler
-- [x] **3. hafta:** Docker Compose, GitHub Actions CI (Docker'da uçtan uca test dahil), GHCR + SSH ile otomatik deploy, Nginx + Let's Encrypt kurulum rehberi
-- [x] **4. hafta:** Check-in/check-out (erken çıkışta kalan geceler satışa açılır), otelin saat dilimine göre "bugün", httpOnly refresh cookie, giriş deneme sınırı, HTTP entegrasyon testleri, API dokümantasyonu, demo verisi
+- [x] Faz 1: Çekirdek backend, otel paneli, Docker, CI/CD, güvenlik, demo verisi
+- [x] Faz 2: Serilog, Hangfire, SignalR, Redis, Testcontainers
+- [x] Faz 3: Misafir API'si, React Native uygulaması, push bildirim, yorumlar, yapay zekâ
 - [ ] Sunucuya ilk kurulum ve canlı demo adresi
-- [x] **Faz 2:** Serilog + correlation id, Hangfire (ödeme süresi, hatırlatma, gün sonu raporu, gece demo yenileme), SignalR, Redis önbellek, Testcontainers
-- [ ] React Native misafir uygulaması, LLM ile yorum özetleme
+
+**Bilinen sınırlar**
+- **Ödeme simülasyondur.** Gerçek bir sağlayıcı (iyzico, Stripe) yerine `PublicBookingService.PayAsync` içindeki simülasyon kullanılıyor.
+- **Otel fotoğrafı yok.** Otel kartlarında fotoğraf yerine marka renginde bir kapak var; dosya yükleme henüz yapılmadı.
+- **Tek API instance'ı.** Migration'lar açılışta uygulanıyor. Birden fazla instance için bu adım ayrı bir migration bundle'a taşınmalı; Redis önbellek ve Hangfire zaten paylaşımlı çalışıyor.
