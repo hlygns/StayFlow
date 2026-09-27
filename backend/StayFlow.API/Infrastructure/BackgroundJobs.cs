@@ -1,6 +1,7 @@
 using Hangfire;
 using Hangfire.SqlServer;
 using StayFlow.Application.BackgroundJobs;
+using StayFlow.Infrastructure.Persistence;
 
 namespace StayFlow.API.Infrastructure;
 
@@ -53,6 +54,13 @@ public static class BackgroundJobs
         // Her aksam 22:00 (otel saati): otel sahiplerine gun sonu raporu
         jobs.AddOrUpdate<DailyReportJob>("gun-sonu-raporu",
             job => job.RunAsync(CancellationToken.None), Cron.Daily(22), hotelTime);
+
+        // Canli demo: her gece 04:00'te demo otel bugune gore yeniden olusturulur
+        if (app.Configuration.GetValue<bool>("Database:SeedDemoData"))
+        {
+            jobs.AddOrUpdate<DemoDataSeeder>("demo-verisini-yenile",
+                job => job.ResetAsync(CancellationToken.None), Cron.Daily(4), hotelTime);
+        }
 
         // Yonetim ekrani sadece gelistirmede (varsayilan yetki: sadece localhost'tan erisim)
         if (app.Environment.IsDevelopment())

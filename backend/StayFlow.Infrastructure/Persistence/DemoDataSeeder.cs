@@ -30,12 +30,53 @@ public class DemoDataSeeder
     private readonly StayFlowDbContext _db;
     private readonly IPasswordHasher _passwordHasher;
     private readonly TimeProvider _timeProvider;
+    private readonly IAvailabilityCacheInvalidator? _availabilityCache;
 
-    public DemoDataSeeder(StayFlowDbContext db, IPasswordHasher passwordHasher, TimeProvider timeProvider)
+    public DemoDataSeeder(
+        StayFlowDbContext db, IPasswordHasher passwordHasher, TimeProvider timeProvider, IAvailabilityCacheInvalidator? availabilityCache = null)
     {
         _db = db;
         _passwordHasher = passwordHasher;
         _timeProvider = timeProvider;
+        _availabilityCache = availabilityCache;
+    }
+
+    /// <summary>
+    /// Demo oteli silip bugune gore yeniden olusturur. Canli demoda her gece calisir: ziyaretcilerin
+    /// yaptigi degisiklikler temizlenir ve takvim her sabah "bugun" etrafinda dolu gorunur.
+    /// </summary>
+    public async Task ResetAsync(CancellationToken ct = default)
+    {
+        var hotelId = await _db.Hotels.Where(h => h.Slug == DemoSlug).Select(h => (Guid?)h.Id).FirstOrDefaultAsync(ct);
+        if (hotelId is { } id)
+        {
+            // Tum yabanci anahtarlar "Restrict": cocuklardan ebeveyne dogru sirayla silinir.
+            // ExecuteDelete tek SQL komutu calistirir (kayitlari belleğe yuklemez) ama SaveChanges'i
+            // atladigi icin onbellek gecersiz kilma burada elle yapiliyor.
+            // SQL Server'da "hata olursa tekrar dene" stratejisi acik: elle acilan transaction'lar bu
+            // stratejinin icinde calismak zorunda (yoksa EF hata firlatir). Tekrar denenirse tum blok bastan calisir.
+            await _db.Database.CreateExecutionStrategy().ExecuteAsync(async () =>
+            {
+                await using var transaction = await _db.Database.BeginTransactionAsync(ct);
+                await _db.Payments.IgnoreQueryFilters().Where(x => x.HotelId == id).ExecuteDeleteAsync(ct);
+                await _db.RoomNights.IgnoreQueryFilters().Where(x => x.HotelId == id).ExecuteDeleteAsync(ct);
+                await _db.Reservations.IgnoreQueryFilters().Where(x => x.HotelId == id).ExecuteDeleteAsync(ct);
+                await _db.Guests.IgnoreQueryFilters().Where(x => x.HotelId == id).ExecuteDeleteAsync(ct);
+                await _db.SeasonalPrices.IgnoreQueryFilters().Where(x => x.HotelId == id).ExecuteDeleteAsync(ct);
+                await _db.Rooms.IgnoreQueryFilters().Where(x => x.HotelId == id).ExecuteDeleteAsync(ct);
+                await _db.RoomTypes.IgnoreQueryFilters().Where(x => x.HotelId == id).ExecuteDeleteAsync(ct);
+                await _db.Users.IgnoreQueryFilters().Where(x => x.HotelId == id).ExecuteDeleteAsync(ct);
+                await _db.Hotels.Where(x => x.Id == id).ExecuteDeleteAsync(ct);
+                await transaction.CommitAsync(ct);
+            });
+
+            if (_availabilityCache is not null)
+            {
+                await _availabilityCache.InvalidateAsync([id], ct);
+            }
+        }
+
+        await SeedAsync(ct);
     }
 
     public async Task SeedAsync(CancellationToken ct = default)

@@ -84,6 +84,22 @@ public class ConcurrencyOnSqlServerTests : IClassFixture<RealInfrastructureFixtu
     }
 
     [Fact]
+    public async Task Demo_verisi_SQL_Serverda_sifirlanip_yeniden_olusturulur()
+    {
+        // SQL Server'daki "tekrar dene" stratejisi elle acilan transaction'a izin vermez;
+        // SQLite testleri bunu yakalayamaz - bu test canlidaki gece isinin gercekten calistigini kanitlar.
+        using var scope = _infra.Factory.Services.CreateScope();
+        var seeder = scope.ServiceProvider.GetRequiredService<DemoDataSeeder>();
+        await seeder.SeedAsync();
+
+        await seeder.ResetAsync();
+
+        var db = scope.ServiceProvider.GetRequiredService<StayFlowDbContext>();
+        Assert.Equal(1, await db.Hotels.CountAsync(h => h.Slug == "demo-lara-butik-otel"));
+        Assert.Equal(12, await db.Rooms.IgnoreQueryFilters().CountAsync(r => r.Hotel.Slug == "demo-lara-butik-otel"));
+    }
+
+    [Fact]
     public async Task Redis_onbellegi_rezervasyondan_sonra_gecersiz_kilinir()
     {
         var client = await _infra.RegisterHotelAsync();

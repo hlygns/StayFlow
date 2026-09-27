@@ -67,5 +67,28 @@ public class DemoDataSeederTests : IDisposable
         Assert.Equal(UserRole.Owner, owner.Role);
     }
 
+    [Fact]
+    public async Task Sifirlama_ziyaretci_degisikliklerini_siler_ve_veriyi_yeni_gune_gore_uretir()
+    {
+        await SeedAsync();
+        await using (var db = await DemoHotelContextAsync())
+        {
+            db.Guests.Add(new Domain.Entities.Guest { FullName = "Ziyaretcinin eklediği misafir" });
+            await db.SaveChangesAsync();
+        }
+
+        _clock.Advance(TimeSpan.FromDays(10)); // 10 gun sonra gece 04:00
+        await using (var resetDb = _database.CreateContext(new FakeTenantService()))
+        {
+            await new DemoDataSeeder(resetDb, new PasswordHasher(), _clock).ResetAsync();
+        }
+
+        await using var after = await DemoHotelContextAsync();
+        Assert.False(await after.Guests.AnyAsync(g => g.FullName == "Ziyaretcinin eklediği misafir"));
+        var newToday = Today.AddDays(10);
+        Assert.Contains(await after.Reservations.ToListAsync(), r => r.Status == ReservationStatus.CheckedIn && r.CheckIn < newToday && newToday <= r.CheckOut);
+        Assert.Equal(12, await after.Rooms.CountAsync());
+    }
+
     public void Dispose() => _database.Dispose();
 }

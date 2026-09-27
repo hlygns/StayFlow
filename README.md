@@ -3,7 +3,7 @@
 Butik oteller ve pansiyonlar için çok kiracılı (multi-tenant) rezervasyon ve misafir yönetim sistemi.
 Her otel kendi hesabıyla sisteme kaydolur; odalarını, fiyatlarını ve rezervasyonlarını yönetir ve yalnızca kendi verisini görür.
 
-> Durum: **Faz 1 tamamlandı (4 hafta)**: backend, React yönetim paneli, Docker, CI/CD ve demo verisi.
+> Durum: **Faz 1 ve Faz 2 tamamlandı**: backend, React yönetim paneli, Docker, CI/CD, arka plan işleri, gerçek zamanlı bildirimler, Redis önbellek.
 > Canlı yayın için sunucu kurulumu [docs/deploy.md](docs/deploy.md) rehberinde.
 
 ![Rezervasyon takvimi](docs/screenshots/calendar.png)
@@ -11,7 +11,8 @@ Her otel kendi hesabıyla sisteme kaydolur; odalarını, fiyatlarını ve rezerv
 ## Teknolojiler
 
 - **Backend:** .NET 10 · ASP.NET Core Web API · EF Core 10 · SQL Server · JWT + refresh token · xUnit
-- **Altyapı:** Docker · Docker Compose · Nginx · GitHub Actions (CI + deploy) · GitHub Container Registry
+- **Arka plan ve gerçek zamanlı:** Hangfire · SignalR · Redis · MailKit (SMTP) · Serilog
+- **Altyapı:** Docker · Docker Compose · Nginx · GitHub Actions (CI + deploy) · GitHub Container Registry · Testcontainers
 - **Yönetim paneli:** React 19 · TypeScript · Vite · Tailwind CSS v4 · TanStack Query · React Router · React Hook Form + Zod · Vitest + Testing Library
 
 ## Yönetim paneli
@@ -38,9 +39,19 @@ Uygulamadaki ön kontrol yalnızca kullanıcıya hızlı ve anlaşılır bir hat
 Bu davranış iki şekilde doğrulandı:
 
 - **Otomatik test** (`ReservationServiceTests.Es_zamanli_iki_istekten_sadece_biri_basarili_olur`): Bir EF Core interceptor'ı, ön kontrol ile kayıt arasına rakip bir rezervasyon sokar. Unique index ikinci isteği reddeder ve 409 döner.
-- **Gerçek yük** (SQL Server LocalDB): Aynı oda ve aynı geceler için 20 eşzamanlı HTTP isteği gönderildi. Sonuç 1 × `201 Created`, 19 × `409 Conflict` oldu. Bu 409'lardan bazıları ön kontrolü geçen, ama unique index tarafından reddedilen isteklerdir.
+- **Gerçek SQL Server** (Testcontainers, her CI çalışmasında): Aynı oda için 30 gerçekten paralel HTTP isteği gönderiliyor. Sonuç tam olarak 1 × `201 Created` ve 29 × `409 Conflict`; veritabanında tek rezervasyon ve kaybedenlerden hiçbir artık kayıt kalmıyor. Farklı odalara paralel rezervasyonlar ise birbirini engellemiyor.
+- **Docker'daki sistem** (`scripts/smoke_test.py`): 20 eşzamanlı istek Nginx → API → SQL Server yolundan geçiyor. Loglarda, ön kontrolü geçen ama unique index'e takılan istekler `Cifte rezervasyon veritabani kisitiyla engellendi` uyarısıyla görülüyor.
 
 İptal edilen rezervasyonun `RoomNights` satırları silinir; o geceler yeniden satışa açılır.
+
+## Arka plan işleri ve gerçek zamanlı güncellemeler
+
+| | Ne yapar |
+|---|---|
+| **Hangfire** | Her dakika: 15 dakikalık ödeme süresi dolan "Ödeme bekliyor" rezervasyonları iptal eder ve gecelerini satışa açar. Her sabah 10:00: yarın gelecek misafirlere hatırlatma e-postası (tekrar çalışsa bile bir kez). Her akşam 22:00: otel sahibine gün sonu raporu. Saatler otelin saat dilimine (İstanbul) göre çalışır. |
+| **SignalR** | Başka bir resepsiyon çalışanının rezervasyonu ya da otomatik iptal, açık olan panellerde sayfa yenilemeden görünür. Her bağlantı yalnızca kendi otelinin grubuna katılır; grup JWT'den okunur. |
+| **Redis** | Müsaitlik sonuçları otel başına "sürüm anahtarı" ile önbelleğe alınır. Oda, fiyat ya da rezervasyon kaydedildiğinde `SaveChanges` sürümü değiştirir; eski sonuçlar bir daha okunmaz. Redis çökerse arama önbelleksiz çalışmaya devam eder. |
+| **Serilog** | Container'da tek satır JSON log. Her isteğin `X-Correlation-Id`'si hem cevap başlığında hem hata gövdesinde döner; kullanıcı hata kodunu iletince o isteğin tüm logları tek aramayla bulunur. |
 
 ## Mimari
 
@@ -114,7 +125,7 @@ Panel `http://localhost:5173` adresinde açılır; `/api` istekleri Vite üzerin
 Testler:
 
 ```bash
-cd backend && dotnet test          # 47 test (servis + HTTP entegrasyon + demo verisi)
+cd backend && dotnet test          # 66 test: servis, HTTP entegrasyon, SignalR, arka plan işleri, Testcontainers (Docker gerekir)
 cd admin-panel && npm test         # 15 test
 python scripts/smoke_test.py       # çalışan sisteme karşı uçtan uca test (Docker: localhost:8080)
 ```
@@ -151,5 +162,5 @@ Hatalar RFC 7807 `ProblemDetails` formatında döner: 400 (doğrulama), 401, 403
 - [x] **3. hafta:** Docker Compose, GitHub Actions CI (Docker'da uçtan uca test dahil), GHCR + SSH ile otomatik deploy, Nginx + Let's Encrypt kurulum rehberi
 - [x] **4. hafta:** Check-in/check-out (erken çıkışta kalan geceler satışa açılır), otelin saat dilimine göre "bugün", httpOnly refresh cookie, giriş deneme sınırı, HTTP entegrasyon testleri, API dokümantasyonu, demo verisi
 - [ ] Sunucuya ilk kurulum ve canlı demo adresi
-- [ ] Faz 2: ~~Serilog~~ ✓, ~~Hangfire~~ ✓, SignalR, Redis, Testcontainers
+- [x] **Faz 2:** Serilog + correlation id, Hangfire (ödeme süresi, hatırlatma, gün sonu raporu, gece demo yenileme), SignalR, Redis önbellek, Testcontainers
 - [ ] React Native misafir uygulaması, LLM ile yorum özetleme
