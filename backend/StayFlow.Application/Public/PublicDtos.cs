@@ -105,4 +105,12 @@ public class GuestReviewRequest
     public string Comment { get; set; } = string.Empty;
 }
 
+public class PushTokenRequest
+{
+    [Required, EmailAddress] public string Email { get; set; } = string.Empty;
+    /// <summary>Expo push token: "ExponentPushToken[xxxx]"</summary>
+    [Required, MaxLength(200), RegularExpression(@"^Expo(nent)?PushToken\[[A-Za-z0-9_\-]+\]$", ErrorMessage = "Geçersiz bildirim anahtarı.")]
+    public string Token { get; set; } = string.Empty;
+}
+
 public record PublicReview(int Rating, string Comment, string GuestName, DateTime CreatedAt, string? OwnerReply);

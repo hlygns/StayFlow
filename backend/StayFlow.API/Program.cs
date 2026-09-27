@@ -12,6 +12,7 @@ using StayFlow.Application.Common.Interfaces;
 using StayFlow.Application.Common.Models;
 using StayFlow.Infrastructure;
 using StayFlow.Infrastructure.Email;
+using StayFlow.Infrastructure.Push;
 using StayFlow.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -115,7 +116,23 @@ builder.Services.AddAuthorization();
 // Canli bildirimler (SignalR). Application'daki varsayilan "bildirim yok" kaydinin yerine gecer.
 builder.Services.AddSignalR()
     .AddJsonProtocol(o => o.PayloadSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter()));
-builder.Services.AddSingleton<IReservationNotifier, SignalRReservationNotifier>();
+// Rezervasyon degisiklikleri iki kanala gider: otel paneline (SignalR) ve misafirin telefonuna (Expo push)
+builder.Services.AddSingleton<SignalRReservationNotifier>();
+builder.Services.AddScoped<ExpoPushNotifier>();
+builder.Services.AddScoped<IReservationNotifier>(sp => new CompositeReservationNotifier(
+[
+    sp.GetRequiredService<SignalRReservationNotifier>(),
+    sp.GetRequiredService<ExpoPushNotifier>(),
+]));
+builder.Services.AddHttpClient(ExpoPushNotifier.HttpClientName, client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(10);
+    // Expo panelinde "enhanced push security" aciksa: sadece bu anahtarla gonderilen bildirimler teslim edilir
+    if (builder.Configuration["Expo:AccessToken"] is { Length: > 0 } expoToken)
+    {
+        client.DefaultRequestHeaders.Authorization = new("Bearer", expoToken);
+    }
+});
 builder.Services.AddStayFlowRateLimiting(builder.Configuration);
 
 // React yonetim paneli (2. hafta) farkli bir porttan istek atacak. Izinli adresler config'ten gelir.

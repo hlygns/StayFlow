@@ -59,6 +59,13 @@ public class PublicController : ControllerBase
     public async Task<ActionResult<GuestReservation>> Review(string code, GuestReviewRequest request, CancellationToken ct) =>
         Ok(await _service.AddReviewAsync(code, request, ct));
 
+    [HttpPost("reservations/{code}/push-token")]
+    public async Task<IActionResult> PushToken(string code, PushTokenRequest request, CancellationToken ct)
+    {
+        await _service.RegisterPushTokenAsync(code, request, ct);
+        return NoContent();
+    }
+
     [HttpPost("reservations/{code}/cancel")]
     public async Task<ActionResult<GuestReservation>> Cancel(string code, GuestAccessRequest request, CancellationToken ct) =>
         Ok(await _service.CancelAsync(code, request.Email, ct));

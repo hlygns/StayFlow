@@ -70,11 +70,11 @@ public class RealtimeTests : IClassFixture<StayFlowApiFactory>
     }
 
     [Fact]
-    public async Task Varsayilan_bildirici_SignalR_uygulamasidir()
+    public async Task Varsayilan_bildirici_SignalR_ve_push_kanallarini_birlestirir()
     {
         _ = _factory.CreateBrowserLikeClient();
         using var scope = _factory.Services.CreateScope();
 
-        Assert.IsType<SignalRReservationNotifier>(scope.ServiceProvider.GetRequiredService<IReservationNotifier>());
+        Assert.IsType<StayFlow.Infrastructure.Push.CompositeReservationNotifier>(scope.ServiceProvider.GetRequiredService<IReservationNotifier>());
     }
 }

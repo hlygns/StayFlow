@@ -1,6 +1,7 @@
 # Her push ve pull request'te:
 #   1) backend: derle + xUnit testleri
 #   2) frontend: lint + Vitest + build
+#   2b) mobile: Expo web derlemesi + tip kontrolu + Jest
 #   3) e2e: tum sistemi docker compose ile ayaga kaldir, uctan uca duman testini calistir
 #      (20 es zamanli rezervasyonla cifte rezervasyon korumasi dahil)
 name: CI
@@ -65,9 +66,29 @@ jobs:
       - run: npm test
       - run: npm run build
 
+  mobile:
+    name: Misafir uygulamasi (Expo)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+
+      - run: npm ci
+      - run: npx expo export --platform web --output-dir dist # derleme kontrolu (tipli rotalari da uretir)
+      - run: npm run typecheck
+      - run: npm test -- --ci
+
   e2e:
     name: Uctan uca (Docker Compose)
-    needs: [backend, frontend]
+    needs: [backend, frontend, mobile]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

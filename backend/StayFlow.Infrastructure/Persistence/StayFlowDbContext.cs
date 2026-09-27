@@ -30,6 +30,7 @@ public class StayFlowDbContext : DbContext, IApplicationDbContext
     public DbSet<RoomNight> RoomNights => Set<RoomNight>();
     public DbSet<Payment> Payments => Set<Payment>();
     public DbSet<Review> Reviews => Set<Review>();
+    public DbSet<GuestPushToken> GuestPushTokens => Set<GuestPushToken>();
 
     /// <summary>
     /// Tum DateTime alanlari UTC yazilir. Ama SQL Server datetime2 saat dilimi bilgisi tutmaz: EF okurken
@@ -83,6 +84,10 @@ public class StayFlowDbContext : DbContext, IApplicationDbContext
         modelBuilder.Entity<Review>().Property(r => r.Comment).HasMaxLength(2000);
         modelBuilder.Entity<Review>().Property(r => r.OwnerReply).HasMaxLength(2000);
         modelBuilder.Entity<Review>().ToTable(t => t.HasCheckConstraint("CK_Review_Rating", "[Rating] BETWEEN 1 AND 5"));
+
+        // Ayni telefon ayni rezervasyona bir kez kaydolur
+        modelBuilder.Entity<GuestPushToken>().Property(t => t.Token).HasMaxLength(200);
+        modelBuilder.Entity<GuestPushToken>().HasIndex(t => new { t.ReservationId, t.Token }).IsUnique();
 
         // Ayni otelde iki tane "101" numarali oda olamaz.
         modelBuilder.Entity<Room>()
@@ -141,6 +146,7 @@ public class StayFlowDbContext : DbContext, IApplicationDbContext
         modelBuilder.Entity<RoomNight>().HasQueryFilter(e => e.HotelId == _currentTenantService.HotelId);
         modelBuilder.Entity<Payment>().HasQueryFilter(e => e.HotelId == _currentTenantService.HotelId);
         modelBuilder.Entity<Review>().HasQueryFilter(e => e.HotelId == _currentTenantService.HotelId);
+        modelBuilder.Entity<GuestPushToken>().HasQueryFilter(e => e.HotelId == _currentTenantService.HotelId);
     }
 
     /// <summary>

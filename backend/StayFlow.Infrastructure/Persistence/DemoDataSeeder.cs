@@ -84,6 +84,7 @@ public class DemoDataSeeder
             {
                 await using var transaction = await _db.Database.BeginTransactionAsync(ct);
                 await _db.Reviews.IgnoreQueryFilters().Where(x => x.HotelId == id).ExecuteDeleteAsync(ct);
+                await _db.GuestPushTokens.IgnoreQueryFilters().Where(x => x.HotelId == id).ExecuteDeleteAsync(ct);
                 await _db.Payments.IgnoreQueryFilters().Where(x => x.HotelId == id).ExecuteDeleteAsync(ct);
                 await _db.RoomNights.IgnoreQueryFilters().Where(x => x.HotelId == id).ExecuteDeleteAsync(ct);
                 await _db.Reservations.IgnoreQueryFilters().Where(x => x.HotelId == id).ExecuteDeleteAsync(ct);

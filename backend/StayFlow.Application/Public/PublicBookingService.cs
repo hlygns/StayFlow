@@ -232,6 +232,33 @@ public class PublicBookingService
         return reviews.Select(r => new PublicReview(r.Rating, r.Comment, GuestNames.Shorten(r.GuestName), r.CreatedAt, r.OwnerReply)).ToList();
     }
 
+    // ---------- Push bildirim ----------
+
+    /// <summary>Misafirin telefonunu bu rezervasyonun bildirimlerine kaydeder (ayni token tekrar gelirse yok sayilir).</summary>
+    public async Task RegisterPushTokenAsync(string code, PushTokenRequest request, CancellationToken ct = default)
+    {
+        var reservation = await FindForGuestAsync(code, request.Email, ct);
+        var tokens = await _db.GuestPushTokens.IgnoreQueryFilters().Where(t => t.ReservationId == reservation.Id).ToListAsync(ct);
+
+        if (tokens.Any(t => t.Token == request.Token))
+        {
+            return;
+        }
+        if (tokens.Count >= 5) // bir rezervasyona sinirsiz cihaz eklenmesin
+        {
+            _db.GuestPushTokens.Remove(tokens.OrderBy(t => t.CreatedAt).First());
+        }
+
+        _db.GuestPushTokens.Add(new GuestPushToken
+        {
+            HotelId = reservation.HotelId,
+            ReservationId = reservation.Id,
+            Token = request.Token,
+            CreatedAt = _timeProvider.GetUtcNow().UtcDateTime
+        });
+        await _db.SaveChangesAsync(ct);
+    }
+
     // ---------- Yardimcilar ----------
 
     private async Task<Hotel> UseHotelAsync(string slug, CancellationToken ct)

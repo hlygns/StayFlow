@@ -21,6 +21,7 @@ public interface IApplicationDbContext
     DbSet<RoomNight> RoomNights { get; }
     DbSet<Payment> Payments { get; }
     DbSet<Review> Reviews { get; }
+    DbSet<GuestPushToken> GuestPushTokens { get; }
 
     /// <summary>Basarisiz bir kayit denemesinden sonra izlenen (eklenmeyi bekleyen) nesneleri temizlemek icin.</summary>
     ChangeTracker ChangeTracker { get; }
