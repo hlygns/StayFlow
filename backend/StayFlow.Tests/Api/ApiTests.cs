@@ -128,6 +128,33 @@ public class ApiTests : IClassFixture<StayFlowApiFactory>
     }
 
     [Fact]
+    public async Task Her_cevapta_correlation_id_var_ve_hata_govdesinde_de_doner()
+    {
+        var client = _factory.CreateBrowserLikeClient();
+        client.DefaultRequestHeaders.Add("X-Correlation-Id", "destek-talebi-42");
+
+        var response = await client.PostAsJsonAsync("/api/auth/login", new { email = "yok@test.com", password = "yanlis" });
+
+        Assert.Equal("destek-talebi-42", response.Headers.GetValues("X-Correlation-Id").Single());
+        var problem = await response.Content.ReadFromJsonAsync<ProblemDetails>();
+        Assert.Equal("destek-talebi-42", problem!.Extensions["correlationId"]?.ToString());
+    }
+
+    [Fact]
+    public async Task Gecersiz_correlation_id_yok_sayilir_yenisi_uretilir()
+    {
+        var client = _factory.CreateBrowserLikeClient();
+        // Bosluk ve ozel karakter iceren deger loglara yazilmamali (log enjeksiyonu)
+        client.DefaultRequestHeaders.TryAddWithoutValidation("X-Correlation-Id", "kotu deger; sahte=log <script>");
+
+        var response = await client.GetAsync("/health/live");
+
+        var id = response.Headers.GetValues("X-Correlation-Id").Single();
+        Assert.DoesNotContain("sahte", id);
+        Assert.Equal(16, id.Length);
+    }
+
+    [Fact]
     public async Task Health_endpointi_veritabani_ile_birlikte_saglikli()
     {
         var response = await _factory.CreateBrowserLikeClient().GetAsync("/health");

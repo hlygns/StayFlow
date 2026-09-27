@@ -1,4 +1,6 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using StayFlow.Application.Common;
 using StayFlow.Application.Common.Exceptions;
 using StayFlow.Application.Common.Interfaces;
@@ -16,11 +18,13 @@ public class ReservationService
 
     private readonly IApplicationDbContext _db;
     private readonly TimeProvider _timeProvider;
+    private readonly ILogger<ReservationService> _logger;
 
-    public ReservationService(IApplicationDbContext db, TimeProvider timeProvider)
+    public ReservationService(IApplicationDbContext db, TimeProvider timeProvider, ILogger<ReservationService>? logger = null)
     {
         _db = db;
         _timeProvider = timeProvider;
+        _logger = logger ?? NullLogger<ReservationService>.Instance;
     }
 
     public async Task<List<ReservationDto>> GetAllAsync(
@@ -116,8 +120,16 @@ public class ReservationService
         {
             // Bu noktada eklenen tek kisitli satirlar RoomNight'lar; on kontrolden sonra
             // baska bir istek ayni geceyi kapmis demektir. Transaction geri alindi, hicbir sey kaydedilmedi.
+            // Uyari olarak loglaniyor: canlida bu korumanin kac kez devreye girdigi izlenebilsin.
+            _logger.LogWarning(
+                "Cifte rezervasyon veritabani kisitiyla engellendi: oda {RoomId}, {CheckIn} - {CheckOut}",
+                room.Id, request.CheckIn, request.CheckOut);
             throw new ConflictException(RoomNotAvailableMessage);
         }
+
+        _logger.LogInformation(
+            "Rezervasyon olusturuldu {ReservationId}: oda {RoomNumber}, {CheckIn} - {CheckOut}, {TotalPrice} TL",
+            reservation.Id, room.RoomNumber, reservation.CheckIn, reservation.CheckOut, reservation.TotalPrice);
 
         return await GetAsync(reservation.Id, ct);
     }
@@ -213,6 +225,7 @@ public class ReservationService
         reservation.PaymentDeadline = null;
         _db.RoomNights.RemoveRange(reservation.RoomNights);
         await _db.SaveChangesAsync(ct);
+        _logger.LogInformation("Rezervasyon iptal edildi {ReservationId}", reservation.Id);
 
         return await GetAsync(id, ct);
     }

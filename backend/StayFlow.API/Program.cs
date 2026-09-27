@@ -13,6 +13,7 @@ using StayFlow.Infrastructure;
 using StayFlow.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.AddStayFlowLogging();
 
 // Enum'lar JSON'da sayi yerine isim olarak gorunsun: "role": "Owner" (0 degil).
 builder.Services.AddControllers()
@@ -34,7 +35,6 @@ builder.Services.AddOpenApi(options => options.AddDocumentTransformer((document,
     return Task.CompletedTask;
 }));
 
-builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 
 builder.Services.AddHttpContextAccessor();
@@ -90,9 +90,6 @@ var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get
 builder.Services.AddCors(options => options.AddDefaultPolicy(policy =>
     policy.WithOrigins(allowedOrigins).AllowAnyHeader().AllowAnyMethod()));
 
-// /health: Docker ve izleme araclari "uygulama ayakta ve veritabanina erisebiliyor mu?" diye sorar.
-builder.Services.AddHealthChecks().AddDbContextCheck<StayFlowDbContext>();
-
 // Canlida API bir reverse proxy'nin (Nginx) arkasinda calisir: HTTPS orada biter, API'ye HTTP gelir.
 // Proxy'nin ekledigi X-Forwarded-* basliklarindan istemcinin gercek IP'si ve semasi (https) okunur.
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
@@ -123,6 +120,7 @@ if (app.Configuration.GetValue<bool>("Database:SeedDemoData"))
     await scope.ServiceProvider.GetRequiredService<DemoDataSeeder>().SeedAsync();
 }
 
+app.UseStayFlowRequestLogging();
 app.UseExceptionHandler();
 
 // Configure the HTTP request pipeline.
@@ -145,7 +143,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
-app.MapHealthChecks("/health");
+app.MapStayFlowHealthChecks();
 
 app.Run();
 
