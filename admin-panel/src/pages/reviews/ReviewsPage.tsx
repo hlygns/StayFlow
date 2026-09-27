@@ -6,7 +6,7 @@ import { useState } from 'react'
 import { reviewsApi } from '../../api/endpoints'
 import type { Review, ReviewSummary } from '../../api/types'
 import { useAuth } from '../../auth/AuthContext'
-import { StarIcon } from '../../components/icons'
+import { SparklesIcon, StarIcon } from '../../components/icons'
 import { Button } from '../../components/ui/Button'
 import { Card, EmptyState, ErrorAlert, PageHeader } from '../../components/ui/Card'
 import { Textarea } from '../../components/ui/Field'
@@ -59,9 +59,63 @@ function SummaryCard({ summary }: { summary: ReviewSummary }) {
   )
 }
 
-function ReviewCard({ review, canModerate }: { review: Review; canModerate: boolean }) {
+/** Yapay zeka ozeti: kullanici isteyince uretilir (ucretli cagri), yorumlar degismedikce sunucuda onbellekte. */
+function AiInsightsCard() {
+  const insights = useApiMutation(() => reviewsApi.insights(), { silentError: true })
+  const data = insights.data
+
+  const section = (title: string, items: string[], tone: string) =>
+    items.length > 0 && (
+      <div>
+        <h3 className={clsx('text-sm font-semibold', tone)}>{title}</h3>
+        <ul className="mt-1.5 list-disc space-y-1 pl-5 text-sm text-slate-700">
+          {items.map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+        </ul>
+      </div>
+    )
+
+  return (
+    <Card className="mt-4 p-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="flex items-center gap-2 font-semibold text-slate-900">
+            <SparklesIcon className="size-5 text-brand-600" />
+            Yapay zekâ özeti
+          </h2>
+          <p className="text-sm text-slate-500">Tüm yorumlar birkaç saniyede özetlenir: öne çıkanlar, tekrar eden şikayetler, öneriler.</p>
+        </div>
+        <Button variant={data ? 'secondary' : 'primary'} loading={insights.isPending} onClick={() => insights.mutate(undefined)}>
+          {data ? 'Yenile' : 'Yorumları özetle'}
+        </Button>
+      </div>
+
+      {insights.error && <div className="mt-4"><ErrorAlert error={insights.error} /></div>}
+
+      {data && (
+        <div className="mt-5 space-y-4">
+          <p className="text-sm leading-relaxed text-slate-800">{data.summary}</p>
+          <div className="grid gap-4 md:grid-cols-3">
+            {section('Güçlü yanlar', data.strengths, 'text-emerald-700')}
+            {section('Tekrar eden şikayetler', data.complaints, 'text-red-700')}
+            {section('Öneriler', data.suggestions, 'text-brand-700')}
+          </div>
+          <p className="text-xs text-slate-500">
+            {data.reviewCount} yoruma dayanır · {format(parseISO(data.generatedAt), 'd MMM HH:mm', { locale: tr })} · Yapay zekâ hata yapabilir; kararlarınızda yorumların kendisine de bakın.
+          </p>
+        </div>
+      )}
+    </Card>
+  )
+}
+
+function ReviewCard({ review, canModerate, aiAvailable }: { review: Review; canModerate: boolean; aiAvailable: boolean }) {
   const [editing, setEditing] = useState(false)
   const [reply, setReply] = useState(review.ownerReply ?? '')
+  const suggest = useApiMutation(() => reviewsApi.suggestReply(review.id), {
+    onSuccess: (result) => setReply(result.reply),
+  })
 
   const saveReply = useApiMutation((text: string) => reviewsApi.reply(review.id, text), {
     invalidate,
@@ -106,11 +160,20 @@ function ReviewCard({ review, canModerate }: { review: Review; canModerate: bool
             if (reply.trim()) saveReply.mutate(reply.trim())
           }}
         >
-          <Textarea label="Yanıtınız" value={reply} onChange={(e) => setReply(e.target.value)} maxLength={2000} />
-          <div className="flex gap-2">
+          <Textarea label="Yanıtınız" value={reply} onChange={(e) => setReply(e.target.value)} maxLength={2000} rows={4} />
+          {aiAvailable && (
+            <p className="text-xs text-slate-500">Yapay zekâ önerisi bir taslaktır; göndermeden önce okuyup düzenleyin.</p>
+          )}
+          <div className="flex flex-wrap gap-2">
             <Button type="submit" size="sm" loading={saveReply.isPending} disabled={!reply.trim()}>
               Yanıtı kaydet
             </Button>
+            {aiAvailable && (
+              <Button size="sm" variant="secondary" loading={suggest.isPending} onClick={() => suggest.mutate(undefined)}>
+                <SparklesIcon className="size-4" />
+                {reply.trim() ? 'Yeniden öner' : 'Yapay zekâ ile öner'}
+              </Button>
+            )}
             <Button size="sm" variant="ghost" onClick={() => setEditing(false)}>
               Vazgeç
             </Button>
@@ -140,6 +203,8 @@ export function ReviewsPage() {
   const [filter, setFilter] = useState<Filter>('all')
 
   const summary = useQuery({ queryKey: ['reviews', 'summary'], queryFn: reviewsApi.summary })
+  const ai = useQuery({ queryKey: ['reviews', 'ai-status'], queryFn: reviewsApi.aiStatus, staleTime: Infinity })
+  const aiAvailable = ai.data?.available ?? false
   const list = useQuery({
     queryKey: ['reviews', filter],
     queryFn: () => reviewsApi.list(filter === 'unanswered' ? { unanswered: true } : typeof filter === 'number' ? { rating: filter } : {}),
@@ -156,6 +221,15 @@ export function ReviewsPage() {
       <PageHeader title="Misafir yorumları" description="Konaklamasını tamamlayan misafirlerin yorumları. Yanıtlarınız misafir uygulamasında görünür." />
 
       {summary.data && <SummaryCard summary={summary.data} />}
+      {aiAvailable ? (
+        <AiInsightsCard />
+      ) : (
+        ai.data && (
+          <p className="mt-4 rounded-lg bg-slate-100 px-4 py-3 text-sm text-slate-600">
+            Yapay zekâ ile yorum özeti ve yanıt önerisi bu kurulumda kapalı. Açmak için sunucuda <code className="font-mono">ANTHROPIC_API_KEY</code> ortam değişkenini tanımlayın.
+          </p>
+        )
+      )}
 
       <div className="my-5 flex flex-wrap gap-2" role="group" aria-label="Filtre">
         {filters.map((f) => (
@@ -185,7 +259,7 @@ export function ReviewsPage() {
       ) : (
         <div className="space-y-4">
           {list.data!.map((review) => (
-            <ReviewCard key={review.id} review={review} canModerate={isOwner} />
+            <ReviewCard key={review.id} review={review} canModerate={isOwner} aiAvailable={aiAvailable} />
           ))}
         </div>
       )}

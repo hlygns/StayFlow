@@ -7,6 +7,7 @@ public static class RateLimitPolicies
 {
     public const string Auth = "auth";
     public const string Public = "public";
+    public const string Ai = "ai";
 
     /// <summary>
     /// Giris ve kayit uclari icin IP basina dakikada N istek (varsayilan 20). Sifre deneme-yanilma
@@ -34,6 +35,12 @@ public static class RateLimitPolicies
             options.AddPolicy(Public, httpContext => RateLimitPartition.GetFixedWindowLimiter(
                 partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
                 factory: _ => new FixedWindowRateLimiterOptions { PermitLimit = publicPermit, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
+
+            // Yapay zeka cagrilari ucretli: otel basina saatte 30 istek (ozet zaten onbellekte)
+            var aiPermit = configuration.GetValue("RateLimiting:AiPermitPerHour", 30);
+            options.AddPolicy(Ai, httpContext => RateLimitPartition.GetFixedWindowLimiter(
+                partitionKey: httpContext.User.FindFirst("hotelId")?.Value ?? "anonymous",
+                factory: _ => new FixedWindowRateLimiterOptions { PermitLimit = aiPermit, Window = TimeSpan.FromHours(1), QueueLimit = 0 }));
 
             options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
             options.OnRejected = async (context, ct) =>

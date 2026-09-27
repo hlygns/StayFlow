@@ -122,6 +122,15 @@ export interface ReviewSummary {
   unanswered: number
 }
 
+export interface ReviewInsights {
+  summary: string
+  strengths: string[]
+  complaints: string[]
+  suggestions: string[]
+  reviewCount: number
+  generatedAt: string
+}
+
 /** RFC 7807 - backend'in tum hata cevaplari bu formatta */
 export interface ProblemDetails {
   title?: string

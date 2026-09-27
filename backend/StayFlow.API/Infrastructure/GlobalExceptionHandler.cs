@@ -28,6 +28,7 @@ public class GlobalExceptionHandler : IExceptionHandler
             UnauthorizedException => (StatusCodes.Status401Unauthorized, "Yetkisiz"),
             NotFoundException => (StatusCodes.Status404NotFound, "Bulunamadi"),
             ConflictException => (StatusCodes.Status409Conflict, "Cakisma"),
+            FeatureUnavailableException => (StatusCodes.Status503ServiceUnavailable, "Servis kullanilamiyor"),
             _ => (StatusCodes.Status500InternalServerError, "Sunucu hatasi")
         };
 

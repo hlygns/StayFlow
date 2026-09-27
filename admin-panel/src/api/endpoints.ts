@@ -7,6 +7,7 @@ import type {
   Reservation,
   ReservationStatus,
   Review,
+  ReviewInsights,
   ReviewSummary,
   Room,
   RoomType,
@@ -116,6 +117,9 @@ export const reviewsApi = {
   summary: () => api.get<ReviewSummary>('/reviews/summary'),
   reply: (id: string, reply: string) => api.put<Review>(`/reviews/${id}/reply`, { reply }),
   setVisibility: (id: string, isPublished: boolean) => api.put<Review>(`/reviews/${id}/visibility`, { isPublished }),
+  aiStatus: () => api.get<{ available: boolean }>('/reviews/ai-status'),
+  insights: () => api.get<ReviewInsights>('/reviews/insights'),
+  suggestReply: (id: string) => api.post<{ reply: string }>(`/reviews/${id}/suggest-reply`),
 }
 
 function changeStatus(id: string, action: 'confirm' | 'check-in' | 'check-out' | 'cancel') {

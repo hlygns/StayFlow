@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
+using StayFlow.API.Infrastructure;
 using StayFlow.Application.Reviews;
 
 namespace StayFlow.API.Controllers;
@@ -11,11 +13,27 @@ namespace StayFlow.API.Controllers;
 public class ReviewsController : ControllerBase
 {
     private readonly ReviewService _reviews;
+    private readonly ReviewInsightService _insights;
 
-    public ReviewsController(ReviewService reviews)
+    public ReviewsController(ReviewService reviews, ReviewInsightService insights)
     {
         _reviews = reviews;
+        _insights = insights;
     }
+
+    /// <summary>Panel, yapay zeka butonlarini gostermeden once sorar.</summary>
+    [HttpGet("ai-status")]
+    public ActionResult<object> AiStatus() => Ok(new { available = _insights.IsAvailable });
+
+    [EnableRateLimiting(RateLimitPolicies.Ai)]
+    [HttpGet("insights")]
+    public async Task<ActionResult<ReviewInsights>> Insights(CancellationToken ct) =>
+        Ok(await _insights.GetInsightsAsync(ct));
+
+    [EnableRateLimiting(RateLimitPolicies.Ai)]
+    [HttpPost("{id:guid}/suggest-reply")]
+    public async Task<ActionResult<object>> SuggestReply(Guid id, CancellationToken ct) =>
+        Ok(new { reply = await _insights.SuggestReplyAsync(id, ct) });
 
     [HttpGet]
     public async Task<ActionResult<List<ReviewDto>>> GetAll([FromQuery] int? rating, [FromQuery] bool? unanswered, CancellationToken ct) =>

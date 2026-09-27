@@ -53,7 +53,9 @@ var connectionString = builder.Configuration.GetConnectionString("DefaultConnect
 builder.Services.AddInfrastructure(
     connectionString,
     builder.Configuration.GetSection("Email").Get<EmailSettings>(),
-    builder.Configuration["Redis:ConnectionString"]);
+    builder.Configuration["Redis:ConnectionString"],
+    builder.Configuration["ANTHROPIC_API_KEY"] ?? builder.Configuration["Anthropic:ApiKey"],
+    builder.Configuration["Anthropic:BaseUrl"]);
 builder.Services.AddStayFlowBackgroundJobs(builder.Configuration, connectionString);
 
 // === JWT ===

@@ -38,6 +38,9 @@ services:
       Email__FromAddress: ${SMTP_FROM:-noreply@stayflow.app}
       # Musaitlik onbellegi
       Redis__ConnectionString: redis:6379
+      # Yapay zeka (yorum ozeti / yanit onerisi). Bos birakilirsa ozellik kapali.
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      Anthropic__BaseUrl: ${ANTHROPIC_BASE_URL:-}
     depends_on:
       db:
         condition: service_healthy

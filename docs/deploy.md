@@ -61,6 +61,8 @@ nano .env
 | `JWT_SECRET` | `openssl rand -base64 48` çıktısı |
 | `WEB_PORT` | `8080` (Nginx buna yönlendirir) |
 | `IMAGE_OWNER` | GitHub kullanıcı adınız, **küçük harflerle** (imajlar `ghcr.io/<bu>/stayflow-*`) |
+| `ANTHROPIC_API_KEY` | İsteğe bağlı: yorum özeti ve yanıt önerisi için Claude API anahtarı. Boş bırakılırsa bu özellik kapalı kalır |
+| `SMTP_HOST` ve diğer `SMTP_*` | İsteğe bağlı: e-posta gönderimi (hatırlatma, gün sonu raporu, rezervasyon onayı). Boşsa e-postalar yalnızca loglanır |
 | `DEMO_MODE` | Portföy demosu için `true`: örnek verili demo otel oluşturulur. Gerçek müşteri kurulumunda `false` |
 
 ```bash

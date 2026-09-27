@@ -27,6 +27,7 @@ public static class DependencyInjection
         services.AddScoped<ReservationService>();
         services.AddScoped<StayFlow.Application.Public.PublicBookingService>();
         services.AddScoped<StayFlow.Application.Reviews.ReviewService>();
+        services.AddScoped<StayFlow.Application.Reviews.ReviewInsightService>();
 
         // Arka plan isleri (Hangfire bunlari DI'dan alip calistirir)
         services.AddScoped<ExpiredReservationCanceller>();
