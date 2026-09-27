@@ -221,7 +221,7 @@ export function NewReservationPage() {
               <Button type="submit" form="reservation-form" className="w-full" disabled={!selectedRoom} loading={create.isPending}>
                 Rezervasyonu oluştur
               </Button>
-              <p className="text-center text-xs text-slate-500">Ödeme 15 dakika içinde alınmazsa rezervasyon “Ödeme bekliyor” durumunda kalır.</p>
+              <p className="text-center text-xs text-slate-500">Rezervasyon “Ödeme bekliyor” olarak oluşur. 15 dakika içinde onaylanmazsa otomatik iptal edilir ve oda tekrar satışa açılır.</p>
               <Link to="/calendar" className="block text-center text-sm font-medium text-slate-600 hover:underline">
                 Vazgeç
               </Link>

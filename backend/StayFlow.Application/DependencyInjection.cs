@@ -1,4 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using StayFlow.Application.BackgroundJobs;
+using StayFlow.Application.Common.Interfaces;
 using StayFlow.Application.Common;
 using StayFlow.Application.Auth;
 using StayFlow.Application.Hotels;
@@ -20,6 +23,14 @@ public static class DependencyInjection
         services.AddScoped<SeasonalPriceService>();
         services.AddScoped<AvailabilityService>();
         services.AddScoped<ReservationService>();
+
+        // Arka plan isleri (Hangfire bunlari DI'dan alip calistirir)
+        services.AddScoped<ExpiredReservationCanceller>();
+        services.AddScoped<ArrivalReminderJob>();
+        services.AddScoped<DailyReportJob>();
+
+        // Varsayilan: bildirim yok. API katmani SignalR uygulamasini kaydederek bunu degistirir.
+        services.TryAddSingleton<IReservationNotifier>(NullReservationNotifier.Instance);
 
         // "Simdi" bilgisini DateTime.UtcNow yerine TimeProvider'dan aliyoruz: testlerde
         // (ve Faz 2'de Hangfire islerinde) zamani kontrol edebilmek icin. "Bugun" otelin saat dilimine gore.

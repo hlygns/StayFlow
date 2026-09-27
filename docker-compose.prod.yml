@@ -14,6 +14,14 @@ services:
   api:
     image: ghcr.io/${IMAGE_OWNER:?IMAGE_OWNER tanimli degil}/stayflow-api:${IMAGE_TAG:-latest}
     restart: unless-stopped
+    environment:
+      # Canlida Mailpit yok: SMTP_HOST .env'de verilmezse e-postalar gonderilmez, sadece loglanir
+      Email__Host: ${SMTP_HOST:-}
+      Email__UseTls: ${SMTP_USE_TLS:-true}
+      Email__Port: ${SMTP_PORT:-587}
+
+  mailpit:
+    profiles: ["dev"] # canlida baslatilmaz
 
   web:
     image: ghcr.io/${IMAGE_OWNER:?IMAGE_OWNER tanimli degil}/stayflow-web:${IMAGE_TAG:-latest}

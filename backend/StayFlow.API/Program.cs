@@ -10,6 +10,7 @@ using StayFlow.Application;
 using StayFlow.Application.Common.Interfaces;
 using StayFlow.Application.Common.Models;
 using StayFlow.Infrastructure;
+using StayFlow.Infrastructure.Email;
 using StayFlow.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -41,9 +42,12 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentTenantService, CurrentTenantService>();
 
 // Otellerin saat dilimi (IANA adi). Simdilik tum oteller Turkiye'de; ileride otel bazina tasinabilir.
-builder.Services.AddApplication(builder.Configuration["App:TimeZone"] ?? "Europe/Istanbul");
-builder.Services.AddInfrastructure(builder.Configuration.GetConnectionString("DefaultConnection")
-    ?? throw new InvalidOperationException("ConnectionStrings:DefaultConnection tanimli degil."));
+var hotelTimeZone = TimeZoneInfo.FindSystemTimeZoneById(builder.Configuration["App:TimeZone"] ?? "Europe/Istanbul");
+builder.Services.AddApplication(hotelTimeZone.Id);
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
+    ?? throw new InvalidOperationException("ConnectionStrings:DefaultConnection tanimli degil.");
+builder.Services.AddInfrastructure(connectionString, builder.Configuration.GetSection("Email").Get<EmailSettings>());
+builder.Services.AddStayFlowBackgroundJobs(builder.Configuration, connectionString);
 
 // === JWT ===
 var jwtSettings = builder.Configuration.GetSection("Jwt").Get<JwtSettings>() ?? new JwtSettings();
@@ -119,6 +123,9 @@ if (app.Configuration.GetValue<bool>("Database:SeedDemoData"))
     using var scope = app.Services.CreateScope();
     await scope.ServiceProvider.GetRequiredService<DemoDataSeeder>().SeedAsync();
 }
+
+// Zamanlanmis isler veritabani hazir olduktan sonra kaydedilir (Hangfire tablolari ayni DB'de)
+app.UseStayFlowBackgroundJobs(hotelTimeZone);
 
 app.UseStayFlowRequestLogging();
 app.UseExceptionHandler();

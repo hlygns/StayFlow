@@ -32,6 +32,12 @@ public class Reservation : ITenantEntity
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
+    /// <summary>Iptal zamani (gun sonu raporu icin). Iptal edilmemisse null.</summary>
+    public DateTime? CancelledAt { get; set; }
+
+    /// <summary>Giris hatirlatma e-postasinin gonderildigi an: ayni misafire iki kez gonderilmesin.</summary>
+    public DateTime? ReminderSentAt { get; set; }
+
     public ICollection<RoomNight> RoomNights { get; set; } = new List<RoomNight>();
     public ICollection<Payment> Payments { get; set; } = new List<Payment>();
 }

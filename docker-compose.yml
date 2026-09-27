@@ -29,6 +29,13 @@ services:
       Database__MigrateOnStartup: "true"
       # DEMO_MODE=true: acilista ornek verili "Lara Butik Otel (Demo)" olusturulur
       Database__SeedDemoData: ${DEMO_MODE:-false}
+      # E-posta: yerelde Mailpit'e gider (gonderilenler http://localhost:8025 adresinde gorulur)
+      Email__Host: ${SMTP_HOST:-mailpit}
+      Email__Port: ${SMTP_PORT:-1025}
+      Email__UseTls: ${SMTP_USE_TLS:-false}
+      Email__UserName: ${SMTP_USER:-}
+      Email__Password: ${SMTP_PASSWORD:-}
+      Email__FromAddress: ${SMTP_FROM:-noreply@stayflow.app}
     depends_on:
       db:
         condition: service_healthy
@@ -50,6 +57,13 @@ services:
     depends_on:
       api:
         condition: service_healthy
+
+  # Sahte e-posta sunucusu: gonderilen e-postalari yakalar, hicbirini gercekten gondermez
+  mailpit:
+    image: axllent/mailpit:v1.27
+    ports:
+      - "127.0.0.1:8025:8025" # web arayuzu
+      - "127.0.0.1:1025:1025" # SMTP: API'yi docker disinda (dotnet run) calistirirken de kullanilabilsin
 
 volumes:
   db-data:

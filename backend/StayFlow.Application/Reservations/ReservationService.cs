@@ -223,6 +223,7 @@ public class ReservationService
 
         reservation.Status = ReservationStatus.Cancelled;
         reservation.PaymentDeadline = null;
+        reservation.CancelledAt = _timeProvider.GetUtcNow().UtcDateTime;
         _db.RoomNights.RemoveRange(reservation.RoomNights);
         await _db.SaveChangesAsync(ct);
         _logger.LogInformation("Rezervasyon iptal edildi {ReservationId}", reservation.Id);

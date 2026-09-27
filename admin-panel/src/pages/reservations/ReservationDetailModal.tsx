@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import type { ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { reservationsApi } from '../../api/endpoints'
 import { Button } from '../../components/ui/Button'
 import { ErrorAlert } from '../../components/ui/Card'
@@ -8,6 +8,24 @@ import { Spinner } from '../../components/ui/Spinner'
 import { StatusBadge } from '../../components/ui/StatusBadge'
 import { formatDate, formatMoney, today } from '../../lib/format'
 import { useApiMutation } from '../../lib/useApiMutation'
+
+/** Odeme bekleyen rezervasyon bu saatte otomatik iptal edilir (backend'de Hangfire isi). */
+function PaymentDeadline({ deadline }: { deadline: string }) {
+  // Geri sayim ekranda canli kalsin: 30 sn'de bir yeniden hesapla
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 30_000)
+    return () => clearInterval(timer)
+  }, [])
+
+  const minutesLeft = Math.ceil((new Date(deadline).getTime() - now) / 60_000)
+  const time = new Date(deadline).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })
+  return (
+    <span className={minutesLeft <= 5 ? 'text-red-600' : undefined}>
+      {time} {minutesLeft > 0 ? `(${minutesLeft} dk kaldı, sonra otomatik iptal)` : '(süre doldu, iptal ediliyor)'}
+    </span>
+  )
+}
 
 function Row({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -104,6 +122,11 @@ export function ReservationDetailModal({ reservationId, onClose }: { reservation
             <Row label="Durum">
               <StatusBadge status={reservation.status} />
             </Row>
+            {reservation.status === 'Pending' && reservation.paymentDeadline && (
+              <Row label="Ödeme için son">
+                <PaymentDeadline deadline={reservation.paymentDeadline} />
+              </Row>
+            )}
             <Row label="Giriş – Çıkış">
               {formatDate(reservation.checkIn)} – {formatDate(reservation.checkOut)}
             </Row>

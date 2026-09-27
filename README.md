@@ -151,5 +151,5 @@ Hatalar RFC 7807 `ProblemDetails` formatında döner: 400 (doğrulama), 401, 403
 - [x] **3. hafta:** Docker Compose, GitHub Actions CI (Docker'da uçtan uca test dahil), GHCR + SSH ile otomatik deploy, Nginx + Let's Encrypt kurulum rehberi
 - [x] **4. hafta:** Check-in/check-out (erken çıkışta kalan geceler satışa açılır), otelin saat dilimine göre "bugün", httpOnly refresh cookie, giriş deneme sınırı, HTTP entegrasyon testleri, API dokümantasyonu, demo verisi
 - [ ] Sunucuya ilk kurulum ve canlı demo adresi
-- [ ] Hangfire (ödenmeyen rezervasyonu 15 dk'da iptal), SignalR, Redis, Testcontainers, Serilog
+- [ ] Faz 2: ~~Serilog~~ ✓, ~~Hangfire~~ ✓, SignalR, Redis, Testcontainers
 - [ ] React Native misafir uygulaması, LLM ile yorum özetleme
