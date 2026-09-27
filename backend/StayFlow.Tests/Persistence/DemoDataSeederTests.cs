@@ -54,6 +54,14 @@ public class DemoDataSeederTests : IDisposable
             r => Assert.Equal(r.CheckOut.DayNumber - r.CheckIn.DayNumber, r.RoomNights.Count));
         // Demo'da "bugun" dolu gorunmeli: konaklayan misafirler var
         Assert.Contains(reservations, r => r.Status == ReservationStatus.CheckedIn);
+
+        // Yorumlar: sadece konaklamasi bitmis rezervasyonlarda, yorumlar sayfasi bos gorunmeyecek kadar
+        var reviews = await db.Reviews.Include(r => r.Reservation).ToListAsync();
+        Assert.True(reviews.Count >= 8, $"Demo icin yeterli yorum yok: {reviews.Count}");
+        Assert.All(reviews, r => Assert.Equal(ReservationStatus.CheckedOut, r.Reservation.Status));
+        Assert.All(reviews, r => Assert.True(r.CreatedAt <= _clock.GetUtcNow().UtcDateTime, "Gelecek tarihli yorum"));
+        Assert.All(reviews, r => Assert.True(r.OwnerRepliedAt is null || r.OwnerRepliedAt <= _clock.GetUtcNow().UtcDateTime));
+        Assert.True(reviews.Average(r => r.Rating) >= 3.8, $"Demo ortalamasi gercekci degil: {reviews.Average(r => r.Rating):0.0}");
     }
 
     [Fact]

@@ -93,4 +93,16 @@ public record GuestReservation(
     string GuestName,
     bool CanPay,
     bool CanCancel,
-    string? PaymentMethod);
+    string? PaymentMethod,
+    bool CanReview,
+    int? MyRating);
+
+public class GuestReviewRequest
+{
+    [Required, EmailAddress] public string Email { get; set; } = string.Empty;
+    [Range(1, 5)] public int Rating { get; set; }
+    [Required, MinLength(10, ErrorMessage = "Yorum en az 10 karakter olmalı."), MaxLength(2000)]
+    public string Comment { get; set; } = string.Empty;
+}
+
+public record PublicReview(int Rating, string Comment, string GuestName, DateTime CreatedAt, string? OwnerReply);

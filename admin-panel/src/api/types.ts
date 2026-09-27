@@ -101,6 +101,27 @@ export interface Reservation {
   guest: Guest
 }
 
+export interface Review {
+  id: string
+  rating: number
+  comment: string
+  guestName: string
+  roomTypeName: string
+  stayCheckOut: IsoDate
+  createdAt: string
+  isPublished: boolean
+  ownerReply: string | null
+  ownerRepliedAt: string | null
+}
+
+export interface ReviewSummary {
+  averageRating: number | null
+  count: number
+  /** index 0 = 1 yildiz ... index 4 = 5 yildiz */
+  distribution: number[]
+  unanswered: number
+}
+
 /** RFC 7807 - backend'in tum hata cevaplari bu formatta */
 export interface ProblemDetails {
   title?: string

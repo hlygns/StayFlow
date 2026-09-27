@@ -46,4 +46,5 @@ public class Reservation : ITenantEntity
 
     public ICollection<RoomNight> RoomNights { get; set; } = new List<RoomNight>();
     public ICollection<Payment> Payments { get; set; } = new List<Payment>();
+    public Review? Review { get; set; }
 }

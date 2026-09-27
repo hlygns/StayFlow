@@ -28,6 +28,30 @@ public class DemoDataSeeder
         "Oliver Brown", "Deniz Koç", "Marta Kowalska", "Ahmet Yıldız", "Julia Fischer", "Sergey Volkov"
     ];
 
+    /// <summary>
+    /// Gercekci yorum havuzu: farkli diller, puanlar ve tekrar eden konular (kahvalti, temizlik, gurultu,
+    /// wifi, konum). Yapay zeka ozeti bu "desenleri" yakalayabilsin diye bilerek boyle secildi.
+    /// </summary>
+    private static readonly (int Rating, string Comment, string? Reply)[] ReviewPool =
+    [
+        (5, "Kahvaltı harikaydı, özellikle ev yapımı reçeller. Personel çok ilgili, denize yürüme mesafesi büyük artı.", "Güzel yorumunuz için teşekkür ederiz, reçellerimizi annemiz yapıyor! Tekrar bekleriz."),
+        (4, "Oda temiz ve ferahtı. Tek sorun akşamları yan taraftaki barın müziğiydi, gece yarısına kadar ses geldi.", null),
+        (5, "Perfect location, 5 minutes to the beach. Breakfast was excellent and the staff spoke good English.", null),
+        (3, "Konum iyi ama Wi-Fi odada çok zayıftı, sadece lobide çalışıyordu. Fiyatına göre idare eder.", "Geri bildiriminiz için teşekkürler, Wi-Fi altyapımızı bu ay yeniliyoruz."),
+        (5, "Sehr sauberes Zimmer, freundliches Personal und ein tolles Frühstück. Wir kommen wieder!", null),
+        (4, "Havuz alanı çok güzel ve temizdi. Otopark ücretsiz olması büyük kolaylık. Kahvaltı çeşidi biraz daha artabilir.", null),
+        (2, "Klima gürültülü çalışıyordu ve odada nem kokusu vardı. Resepsiyon ilgilendi ama oda değiştirilemedi.", null),
+        (5, "Balayımız için seçtik, bizi odada küçük bir sürprizle karşıladılar. Her şey için teşekkürler!", "Mutluluğunuza ortak olduğumuz için biz teşekkür ederiz, ömür boyu mutluluklar!"),
+        (4, "Great value for money. Room was a bit small but very clean. Street noise at night was noticeable.", null),
+        (5, "Temizlik kusursuzdu, her gün havlular değişti. Kahvaltıdaki gözleme çok lezzetliydi.", null),
+        (3, "Otel güzel ama Wi-Fi sürekli koptu, iş için gelmiştim ve zorlandım. Personel güler yüzlü.", null),
+        (4, "Отличное расположение, чистые номера и вкусный завтрак. Персонал очень приветливый.", null),
+        (5, "Aile olarak kaldık, çocuklar havuza bayıldı. Aile suiti çok geniş ve kullanışlı.", null),
+        (4, "Denize yakın, sessiz bir sokakta. Kahvaltı güzel ama saat 10'da bitiyor, biraz erken.", null),
+        (1, "Rezervasyonumda deniz manzaralı yazıyordu ama bahçe manzaralı oda verildi. Çok hayal kırıklığı.", "Yaşadığınız karışıklık için özür dileriz. Bu konuyu ekibimizle konuştuk, iletişime geçmek isteriz."),
+        (5, "Lovely boutique hotel with character. The owner gave us great tips for restaurants in Kaleiçi.", null),
+    ];
+
     private readonly StayFlowDbContext _db;
     private readonly IPasswordHasher _passwordHasher;
     private readonly TimeProvider _timeProvider;
@@ -203,6 +227,35 @@ public class DemoDataSeeder
             {
                 reservation.RoomNights.Add(new RoomNight { HotelId = hotelId, RoomId = room.Id, Date = night });
             }
+        }
+
+        // Konaklamasi bitmis misafirlerin cogu yorum yazar (demo: yorumlar sayfasi ve yapay zeka ozeti icin)
+        if (status == ReservationStatus.CheckedOut && random.NextDouble() < 0.8)
+        {
+            var (rating, comment, reply) = ReviewPool[random.Next(ReviewPool.Length)];
+            // Gercek otellerde puanlar yukselere yigilir: dusuk puan cikarsa bir kez daha cek (dusukler daha seyrek)
+            if (rating <= 2)
+            {
+                (rating, comment, reply) = ReviewPool[random.Next(ReviewPool.Length)];
+            }
+
+            // Yorum check-out'tan 0-2 gun sonra yazilmis olsun, ama asla gelecekte degil
+            var now = _timeProvider.GetUtcNow().UtcDateTime;
+            var writtenAt = checkOut.AddDays(random.Next(0, 3)).ToDateTime(new TimeOnly(16, 0), DateTimeKind.Utc);
+            if (writtenAt > now)
+            {
+                writtenAt = now.AddHours(-random.Next(1, 6));
+            }
+            reservation.Review = new Review
+            {
+                HotelId = hotelId,
+                Rating = rating,
+                Comment = comment,
+                GuestName = guestName,
+                CreatedAt = writtenAt,
+                OwnerReply = reply,
+                OwnerRepliedAt = reply is null ? null : (writtenAt.AddHours(14) < now ? writtenAt.AddHours(14) : now)
+            };
         }
 
         _db.Reservations.Add(reservation);

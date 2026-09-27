@@ -6,6 +6,7 @@ using StayFlow.Application.Common.Exceptions;
 using StayFlow.Application.Common.Helpers;
 using StayFlow.Application.Common.Interfaces;
 using StayFlow.Application.Reservations;
+using StayFlow.Application.Reviews;
 using StayFlow.Domain.Entities;
 using StayFlow.Domain.Enums;
 using ValidationException = StayFlow.Application.Common.Exceptions.ValidationException;
@@ -188,6 +189,49 @@ public class PublicBookingService
         return await GetAsync(code, request.Email, ct);
     }
 
+    // ---------- Yorumlar ----------
+
+    /// <summary>Sadece konaklamasi bitmis (check-out) misafir, rezervasyon basina bir kez yorum yazabilir.</summary>
+    public async Task<GuestReservation> AddReviewAsync(string code, GuestReviewRequest request, CancellationToken ct = default)
+    {
+        var reservation = await FindForGuestAsync(code, request.Email, ct);
+        if (reservation.Status != ReservationStatus.CheckedOut)
+        {
+            throw new ConflictException("Yorum, konaklamanız tamamlandıktan sonra yazılabilir.");
+        }
+        if (reservation.Review is not null)
+        {
+            throw new ConflictException("Bu konaklama için zaten yorum yazdınız.");
+        }
+
+        _db.Reviews.Add(new Review
+        {
+            HotelId = reservation.HotelId,
+            ReservationId = reservation.Id,
+            Rating = request.Rating,
+            Comment = request.Comment.Trim(),
+            GuestName = reservation.Guest.FullName,
+            CreatedAt = _timeProvider.GetUtcNow().UtcDateTime
+        });
+        await _db.SaveChangesAsync(ct);
+        _logger.LogInformation("Yeni yorum ({Rating} yildiz) {ConfirmationCode}", request.Rating, reservation.ConfirmationCode);
+
+        return await GetAsync(code, request.Email, ct);
+    }
+
+    public async Task<List<PublicReview>> GetReviewsAsync(string slug, CancellationToken ct = default)
+    {
+        await UseHotelAsync(slug, ct);
+        var reviews = await _db.Reviews
+            .Where(r => r.IsPublished)
+            .OrderByDescending(r => r.CreatedAt)
+            .Take(50)
+            .Select(r => new { r.Rating, r.Comment, r.GuestName, r.CreatedAt, r.OwnerReply })
+            .ToListAsync(ct);
+
+        return reviews.Select(r => new PublicReview(r.Rating, r.Comment, GuestNames.Shorten(r.GuestName), r.CreatedAt, r.OwnerReply)).ToList();
+    }
+
     // ---------- Yardimcilar ----------
 
     private async Task<Hotel> UseHotelAsync(string slug, CancellationToken ct)
@@ -212,6 +256,7 @@ public class PublicBookingService
             .Include(r => r.Guest)
             .Include(r => r.Room).ThenInclude(room => room.RoomType)
             .Include(r => r.Payments)
+            .Include(r => r.Review)
             .FirstOrDefaultAsync(r => r.ConfirmationCode == normalizedCode, ct);
 
         if (reservation is null || reservation.Guest.Email?.Trim().ToLowerInvariant() != normalizedEmail)
@@ -245,7 +290,9 @@ public class PublicBookingService
         r.Guest.FullName,
         CanPay(r),
         CanCancel(r),
-        r.Payments.OrderByDescending(p => p.PaidAt).FirstOrDefault()?.Method);
+        r.Payments.OrderByDescending(p => p.PaidAt).FirstOrDefault()?.Method,
+        r.Status == ReservationStatus.CheckedOut && r.Review is null,
+        r.Review?.Rating);
 
     private static bool PassesLuhn(string digits)
     {

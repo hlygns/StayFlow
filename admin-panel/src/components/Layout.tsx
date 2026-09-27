@@ -5,7 +5,7 @@ import { NavLink, Outlet, useLocation } from 'react-router'
 import { hotelApi } from '../api/endpoints'
 import { useAuth } from '../auth/AuthContext'
 import { useReservationEvents, type LiveStatus } from '../realtime/useReservationEvents'
-import { BedIcon, CalendarIcon, CogIcon, HomeIcon, ListIcon, LogoutIcon, MenuIcon, TagIcon, UsersIcon } from './icons'
+import { BedIcon, CalendarIcon, CogIcon, HomeIcon, ListIcon, LogoutIcon, MenuIcon, StarIcon, TagIcon, UsersIcon } from './icons'
 
 interface NavItem {
   to: string
@@ -18,6 +18,7 @@ const navItems: NavItem[] = [
   { to: '/', label: 'Genel Bakış', icon: HomeIcon },
   { to: '/calendar', label: 'Takvim', icon: CalendarIcon },
   { to: '/reservations', label: 'Rezervasyonlar', icon: ListIcon },
+  { to: '/reviews', label: 'Yorumlar', icon: StarIcon },
   { to: '/room-types', label: 'Oda Tipleri ve Fiyatlar', icon: TagIcon },
   { to: '/rooms', label: 'Odalar', icon: BedIcon },
   { to: '/staff', label: 'Personel', icon: UsersIcon, ownerOnly: true },

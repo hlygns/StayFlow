@@ -72,7 +72,7 @@ namespace StayFlow.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("RefreshToken");
 
-                    b.ToTable("Users");
+                    b.ToTable("Users", (string)null);
                 });
 
             modelBuilder.Entity("StayFlow.Domain.Entities.Guest", b =>
@@ -101,7 +101,7 @@ namespace StayFlow.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("HotelId");
 
-                    b.ToTable("Guests");
+                    b.ToTable("Guests", (string)null);
                 });
 
             modelBuilder.Entity("StayFlow.Domain.Entities.Hotel", b =>
@@ -150,7 +150,7 @@ namespace StayFlow.Infrastructure.Persistence.Migrations
                     b.HasIndex("Slug")
                         .IsUnique();
 
-                    b.ToTable("Hotels");
+                    b.ToTable("Hotels", (string)null);
                 });
 
             modelBuilder.Entity("StayFlow.Domain.Entities.Payment", b =>
@@ -184,7 +184,7 @@ namespace StayFlow.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("ReservationId");
 
-                    b.ToTable("Payments");
+                    b.ToTable("Payments", (string)null);
                 });
 
             modelBuilder.Entity("StayFlow.Domain.Entities.Reservation", b =>
@@ -246,7 +246,7 @@ namespace StayFlow.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("RoomId");
 
-                    b.ToTable("Reservations");
+                    b.ToTable("Reservations", (string)null);
                 });
 
             modelBuilder.Entity("StayFlow.Domain.Entities.Review", b =>
@@ -293,7 +293,7 @@ namespace StayFlow.Infrastructure.Persistence.Migrations
                     b.HasIndex("ReservationId")
                         .IsUnique();
 
-                    b.ToTable("Reviews", t =>
+                    b.ToTable("Reviews", null, t =>
                         {
                             t.HasCheckConstraint("CK_Review_Rating", "[Rating] BETWEEN 1 AND 5");
                         });
@@ -328,7 +328,7 @@ namespace StayFlow.Infrastructure.Persistence.Migrations
                     b.HasIndex("HotelId", "RoomNumber")
                         .IsUnique();
 
-                    b.ToTable("Rooms");
+                    b.ToTable("Rooms", (string)null);
                 });
 
             modelBuilder.Entity("StayFlow.Domain.Entities.RoomNight", b =>
@@ -358,7 +358,7 @@ namespace StayFlow.Infrastructure.Persistence.Migrations
                     b.HasIndex("RoomId", "Date")
                         .IsUnique();
 
-                    b.ToTable("RoomNights");
+                    b.ToTable("RoomNights", (string)null);
                 });
 
             modelBuilder.Entity("StayFlow.Domain.Entities.RoomType", b =>
@@ -389,7 +389,7 @@ namespace StayFlow.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("HotelId");
 
-                    b.ToTable("RoomTypes");
+                    b.ToTable("RoomTypes", (string)null);
                 });
 
             modelBuilder.Entity("StayFlow.Domain.Entities.SeasonalPrice", b =>
@@ -420,7 +420,7 @@ namespace StayFlow.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("RoomTypeId");
 
-                    b.ToTable("SeasonalPrices", t =>
+                    b.ToTable("SeasonalPrices", null, t =>
                         {
                             t.HasCheckConstraint("CK_SeasonalPrice_DateRange", "[StartDate] < [EndDate]");
                         });

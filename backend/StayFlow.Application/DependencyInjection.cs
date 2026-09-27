@@ -26,6 +26,7 @@ public static class DependencyInjection
         services.AddSingleton<IAvailabilityCacheInvalidator>(sp => sp.GetRequiredService<AvailabilityCache>());
         services.AddScoped<ReservationService>();
         services.AddScoped<StayFlow.Application.Public.PublicBookingService>();
+        services.AddScoped<StayFlow.Application.Reviews.ReviewService>();
 
         // Arka plan isleri (Hangfire bunlari DI'dan alip calistirir)
         services.AddScoped<ExpiredReservationCanceller>();

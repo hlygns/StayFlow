@@ -51,6 +51,14 @@ public class PublicController : ControllerBase
     public async Task<ActionResult<GuestReservation>> Pay(string code, SimulatedPaymentRequest request, CancellationToken ct) =>
         Ok(await _service.PayAsync(code, request, ct));
 
+    [HttpGet("hotels/{slug}/reviews")]
+    public async Task<ActionResult<List<PublicReview>>> Reviews(string slug, CancellationToken ct) =>
+        Ok(await _service.GetReviewsAsync(slug, ct));
+
+    [HttpPost("reservations/{code}/review")]
+    public async Task<ActionResult<GuestReservation>> Review(string code, GuestReviewRequest request, CancellationToken ct) =>
+        Ok(await _service.AddReviewAsync(code, request, ct));
+
     [HttpPost("reservations/{code}/cancel")]
     public async Task<ActionResult<GuestReservation>> Cancel(string code, GuestAccessRequest request, CancellationToken ct) =>
         Ok(await _service.CancelAsync(code, request.Email, ct));

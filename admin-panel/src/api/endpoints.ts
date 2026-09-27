@@ -6,6 +6,8 @@ import type {
   IsoDate,
   Reservation,
   ReservationStatus,
+  Review,
+  ReviewSummary,
   Room,
   RoomType,
   RoomTypeAvailability,
@@ -106,6 +108,14 @@ export const reservationsApi = {
   checkIn: (id: string) => changeStatus(id, 'check-in'),
   checkOut: (id: string) => changeStatus(id, 'check-out'),
   cancel: (id: string) => changeStatus(id, 'cancel'),
+}
+
+export const reviewsApi = {
+  list: (filter: { rating?: number; unanswered?: boolean } = {}) =>
+    api.get<Review[]>(`/reviews${qs({ rating: filter.rating, unanswered: filter.unanswered ? 'true' : undefined })}`),
+  summary: () => api.get<ReviewSummary>('/reviews/summary'),
+  reply: (id: string, reply: string) => api.put<Review>(`/reviews/${id}/reply`, { reply }),
+  setVisibility: (id: string, isPublished: boolean) => api.put<Review>(`/reviews/${id}/visibility`, { isPublished }),
 }
 
 function changeStatus(id: string, action: 'confirm' | 'check-in' | 'check-out' | 'cancel') {

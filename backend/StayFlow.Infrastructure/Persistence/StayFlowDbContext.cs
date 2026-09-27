@@ -62,7 +62,8 @@ public class StayFlowDbContext : DbContext, IApplicationDbContext
         modelBuilder.Entity<Hotel>().Property(h => h.Description).HasMaxLength(2000);
 
         // Bir konaklama icin tek yorum
-        modelBuilder.Entity<Review>().HasIndex(r => r.ReservationId).IsUnique();
+        modelBuilder.Entity<Review>()
+            .HasOne(r => r.Reservation).WithOne(res => res.Review).HasForeignKey<Review>(r => r.ReservationId);
         modelBuilder.Entity<Review>().Property(r => r.Comment).HasMaxLength(2000);
         modelBuilder.Entity<Review>().Property(r => r.OwnerReply).HasMaxLength(2000);
         modelBuilder.Entity<Review>().ToTable(t => t.HasCheckConstraint("CK_Review_Rating", "[Rating] BETWEEN 1 AND 5"));
