@@ -20,6 +20,9 @@ services:
       Email__UseTls: ${SMTP_USE_TLS:-true}
       Email__Port: ${SMTP_PORT:-587}
 
+  redis:
+    restart: unless-stopped
+
   mailpit:
     profiles: ["dev"] # canlida baslatilmaz
 

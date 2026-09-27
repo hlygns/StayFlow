@@ -33,14 +33,17 @@ public sealed class TestDatabase : IDisposable
         db.Database.EnsureCreated();
     }
 
-    public StayFlowDbContext CreateContext(ICurrentTenantService tenant, params IInterceptor[] interceptors)
+    public StayFlowDbContext CreateContext(ICurrentTenantService tenant, params IInterceptor[] interceptors) =>
+        CreateContext(tenant, null, interceptors);
+
+    public StayFlowDbContext CreateContext(ICurrentTenantService tenant, IAvailabilityCacheInvalidator? cache, params IInterceptor[] interceptors)
     {
         var options = new DbContextOptionsBuilder<StayFlowDbContext>()
             .UseSqlite(_connection)
             .AddInterceptors(interceptors)
             .Options;
 
-        return new StayFlowDbContext(options, tenant);
+        return new StayFlowDbContext(options, tenant, cache);
     }
 
     /// <summary>Otel + 1 oda tipi + verilen numaralarda odalar olusturur.</summary>

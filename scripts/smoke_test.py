@@ -149,6 +149,16 @@ sea_availability = next(x for x in availability if x["roomTypeId"] == sea["id"])
 check("fiyat: 2 gece baz (2000) + 1 gece sezon (3000)", int(sea_availability["totalPrice"]), 7000)
 check("3 kisilik aramada 2 kisilik tip listelenmez", any(x["roomTypeId"] == std["id"] for x in availability), False)
 
+# Onbellek: ayni arama tekrarlanir, sonra rezervasyon yapilir -> dolu oda sonuctan dusmeli (gecersiz kilma calisiyor)
+def free_rooms(check_in, check_out):
+    _, result = call("GET", f"/availability?checkIn={check_in}&checkOut={check_out}", token=reception)
+    return {room["roomNumber"] for room_type in result for room in room_type["rooms"]}
+before = free_rooms(day(60), day(62))
+free_rooms(day(60), day(62))  # ikinci kez: onbellekten
+call("POST", "/reservations", {"roomId": rooms["101"]["id"], "checkIn": day(60), "checkOut": day(62), "guest": {"fullName": "Onbellek Testi"}}, reception)
+after = free_rooms(day(60), day(62))
+check("rezervasyondan sonra dolu oda musaitlikten duser (onbellek gecersiz kilindi)", ("101" in before, "101" in after), (True, False))
+
 # ---------- Rezervasyon ----------
 guest = {"fullName": "Ayşe Yılmaz", "phone": "5551112233"}
 room_101 = rooms["101"]["id"]

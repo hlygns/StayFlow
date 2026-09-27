@@ -36,8 +36,12 @@ services:
       Email__UserName: ${SMTP_USER:-}
       Email__Password: ${SMTP_PASSWORD:-}
       Email__FromAddress: ${SMTP_FROM:-noreply@stayflow.app}
+      # Musaitlik onbellegi
+      Redis__ConnectionString: redis:6379
     depends_on:
       db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     healthcheck:
       # aspnet imajinda curl yok; bash'in /dev/tcp ozelligiyle (sh'ta yok, bu yuzden bash -c) /health'e basit bir HTTP istegi
@@ -57,6 +61,16 @@ services:
     depends_on:
       api:
         condition: service_healthy
+
+  redis:
+    image: redis:7.4-alpine
+    # Sadece onbellek: diske yazmaya gerek yok (kaybolursa veritabanindan yeniden hesaplanir)
+    command: ["redis-server", "--save", "", "--appendonly", "no", "--maxmemory", "128mb", "--maxmemory-policy", "allkeys-lru"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
 
   # Sahte e-posta sunucusu: gonderilen e-postalari yakalar, hicbirini gercekten gondermez
   mailpit:

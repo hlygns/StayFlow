@@ -19,11 +19,17 @@ public class AvailabilityService
 {
     private readonly IApplicationDbContext _db;
     private readonly TimeProvider _timeProvider;
+    private readonly AvailabilityCache? _cache;
+    private readonly ICurrentTenantService? _tenant;
 
-    public AvailabilityService(IApplicationDbContext db, TimeProvider timeProvider)
+    /// <param name="cache">Verilmezse (unit testler) her sorgu dogrudan veritabanina gider.</param>
+    public AvailabilityService(
+        IApplicationDbContext db, TimeProvider timeProvider, AvailabilityCache? cache = null, ICurrentTenantService? tenant = null)
     {
         _db = db;
         _timeProvider = timeProvider;
+        _cache = cache;
+        _tenant = tenant;
     }
 
     /// <summary>
@@ -35,6 +41,17 @@ public class AvailabilityService
     {
         StayDates.Validate(checkIn, checkOut, _timeProvider.Today());
 
+        if (_cache is not null && _tenant?.HotelId is { } hotelId)
+        {
+            return await _cache.GetOrCreateAsync(hotelId, $"{checkIn:yyyyMMdd}:{checkOut:yyyyMMdd}:{guests}",
+                () => QueryAsync(checkIn, checkOut, guests, ct), ct);
+        }
+
+        return await QueryAsync(checkIn, checkOut, guests, ct);
+    }
+
+    private async Task<List<RoomTypeAvailabilityDto>> QueryAsync(DateOnly checkIn, DateOnly checkOut, int? guests, CancellationToken ct)
+    {
         // Tarih cakisma mantigi tek satira indi: RoomNight tablosu sayesinde "iki aralik
         // cakisiyor mu?" yerine "bu araliktaki gecelerden biri dolu mu?" diye soruyoruz.
         var bookedRoomIds = _db.RoomNights

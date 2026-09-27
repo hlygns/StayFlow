@@ -47,7 +47,10 @@ var hotelTimeZone = TimeZoneInfo.FindSystemTimeZoneById(builder.Configuration["A
 builder.Services.AddApplication(hotelTimeZone.Id);
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
     ?? throw new InvalidOperationException("ConnectionStrings:DefaultConnection tanimli degil.");
-builder.Services.AddInfrastructure(connectionString, builder.Configuration.GetSection("Email").Get<EmailSettings>());
+builder.Services.AddInfrastructure(
+    connectionString,
+    builder.Configuration.GetSection("Email").Get<EmailSettings>(),
+    builder.Configuration["Redis:ConnectionString"]);
 builder.Services.AddStayFlowBackgroundJobs(builder.Configuration, connectionString);
 
 // === JWT ===

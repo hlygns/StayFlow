@@ -8,11 +8,16 @@ namespace StayFlow.Infrastructure.Persistence;
 public class StayFlowDbContext : DbContext, IApplicationDbContext
 {
     private readonly ICurrentTenantService _currentTenantService;
+    private readonly IAvailabilityCacheInvalidator? _availabilityCache;
 
-    public StayFlowDbContext(DbContextOptions<StayFlowDbContext> options, ICurrentTenantService currentTenantService)
+    public StayFlowDbContext(
+        DbContextOptions<StayFlowDbContext> options,
+        ICurrentTenantService currentTenantService,
+        IAvailabilityCacheInvalidator? availabilityCache = null)
         : base(options)
     {
         _currentTenantService = currentTenantService;
+        _availabilityCache = availabilityCache;
     }
 
     public DbSet<Hotel> Hotels => Set<Hotel>();
@@ -125,6 +130,24 @@ public class StayFlowDbContext : DbContext, IApplicationDbContext
             }
         }
 
-        return base.SaveChangesAsync(cancellationToken);
+        // Musaitligi etkileyen kayitlar degistiyse o otellerin musaitlik onbellegi gecersiz kilinir
+        var affectedHotels = ChangeTracker.Entries<ITenantEntity>()
+            .Where(e => (e.State is EntityState.Added or EntityState.Modified or EntityState.Deleted)
+                        && (e.Entity is Reservation or RoomNight or Room or RoomType or SeasonalPrice))
+            .Select(e => e.Entity.HotelId)
+            .Distinct()
+            .ToList();
+
+        return SaveAndInvalidateAsync(affectedHotels, cancellationToken);
+    }
+
+    private async Task<int> SaveAndInvalidateAsync(List<Guid> affectedHotels, CancellationToken cancellationToken)
+    {
+        var result = await base.SaveChangesAsync(cancellationToken);
+        if (affectedHotels.Count > 0 && _availabilityCache is not null)
+        {
+            await _availabilityCache.InvalidateAsync(affectedHotels, cancellationToken);
+        }
+        return result;
     }
 }

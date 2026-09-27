@@ -22,6 +22,8 @@ public static class DependencyInjection
         services.AddScoped<RoomService>();
         services.AddScoped<SeasonalPriceService>();
         services.AddScoped<AvailabilityService>();
+        services.AddSingleton<AvailabilityCache>();
+        services.AddSingleton<IAvailabilityCacheInvalidator>(sp => sp.GetRequiredService<AvailabilityCache>());
         services.AddScoped<ReservationService>();
 
         // Arka plan isleri (Hangfire bunlari DI'dan alip calistirir)
