@@ -19,6 +19,8 @@ services:
       Email__Host: ${SMTP_HOST:-}
       Email__UseTls: ${SMTP_USE_TLS:-true}
       Email__Port: ${SMTP_PORT:-587}
+      # Canlida yerel gelistirme origin'ine izin verilmez
+      Cors__AllowedOrigins__0: ${MOBILE_WEB_ORIGIN:-}
 
   redis:
     restart: unless-stopped

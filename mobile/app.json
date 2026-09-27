@@ -1,0 +1,44 @@
+{
+  "expo": {
+    "name": "StayFlow",
+    "slug": "stayflow-guest",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "app.stayflow.guest"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#0E8583",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "package": "app.stayflow.guest"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro",
+      "output": "single"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-status-bar",
+      "expo-secure-store",
+      [
+        "expo-notifications",
+        {
+          "color": "#0E8583"
+        }
+      ]
+    ],
+    "scheme": "stayflow",
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

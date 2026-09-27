@@ -41,6 +41,9 @@ services:
       # Yapay zeka (yorum ozeti / yanit onerisi). Bos birakilirsa ozellik kapali.
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       Anthropic__BaseUrl: ${ANTHROPIC_BASE_URL:-}
+      # Misafir uygulamasinin tarayici onizlemesi (npx expo start --web) baska bir porttan istek atar.
+      # Telefondaki uygulama CORS'a tabi degil; bu sadece yerel gelistirme icin.
+      Cors__AllowedOrigins__0: ${MOBILE_WEB_ORIGIN:-http://localhost:8081}
     depends_on:
       db:
         condition: service_healthy
