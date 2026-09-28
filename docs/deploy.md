@@ -47,7 +47,7 @@ apt install -y nginx certbot python3-certbot-nginx
 
 ```bash
 su - deploy
-git clone https://github.com/KULLANICI_ADI/StayFlow.git stayflow
+git clone https://github.com/hlygns/StayFlow.git stayflow
 cd stayflow
 cp .env.example .env
 nano .env
@@ -73,7 +73,7 @@ Repo private ise sunucunun imajları çekebilmesi için GHCR'ye bir kez giriş y
 GitHub Personal Access Token olmalı:
 
 ```bash
-echo GITHUB_TOKEN | docker login ghcr.io -u KULLANICI_ADI --password-stdin
+echo GITHUB_TOKEN | docker login ghcr.io -u hlygns --password-stdin
 ```
 
 ## 3. Nginx ve HTTPS

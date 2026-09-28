@@ -33,4 +33,4 @@ Her sahnenin başına ekrana kısa bir yazı koyun (ör. "1 · Misafir rezervasy
 > En sevdiğim problem çifte rezervasyondu: aynı oda için 30 eşzamanlı istekten yalnızca birinin kazanmasını
 > veritabanı kısıtıyla garanti ettim ve bunu her CI çalışmasında gerçek SQL Server üzerinde test ediyorum.
 > Hangfire, SignalR, Redis, Docker, GitHub Actions ve Claude API ile yorum özetleme de işin içinde.
-> Kod ve demo: <GitHub adresi>
+> Kod ve demo: https://github.com/hlygns/StayFlow

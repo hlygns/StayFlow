@@ -1,5 +1,7 @@
 # StayFlow
 
+[![CI](https://github.com/hlygns/StayFlow/actions/workflows/ci.yml/badge.svg)](https://github.com/hlygns/StayFlow/actions/workflows/ci.yml)
+
 Butik oteller ve pansiyonlar için çok kiracılı (multi-tenant) rezervasyon ve misafir yönetim sistemi.
 Üç parçadan oluşur:
 
