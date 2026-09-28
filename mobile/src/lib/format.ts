@@ -33,10 +33,11 @@ export const formatWeekday = (iso: IsoDate) => weekday.format(parseIso(iso))
 export const formatRange = (a: IsoDate, b: IsoDate) => `${formatShort(a)} – ${formatLong(b)}`
 
 export const statusLabels: Record<ReservationStatus, string> = {
-  Pending: 'Ödeme bekleniyor',
+  // Yonetim paneliyle ayni kelimeler: misafir otelde durumunu sorarken ikisi ayni seyi soylesin
+  Pending: 'Ödeme bekliyor',
   Confirmed: 'Onaylandı',
-  CheckedIn: 'Konaklıyorsunuz',
-  CheckedOut: 'Tamamlandı',
+  CheckedIn: 'Konaklıyor',
+  CheckedOut: 'Ayrıldı',
   Cancelled: 'İptal edildi',
 }
 

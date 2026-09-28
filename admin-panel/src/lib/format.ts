@@ -28,7 +28,7 @@ export const statusLabels: Record<ReservationStatus, string> = {
   Confirmed: 'Onaylandı',
   CheckedIn: 'Konaklıyor',
   CheckedOut: 'Ayrıldı',
-  Cancelled: 'İptal',
+  Cancelled: 'İptal edildi',
 }
 
 /** Durum rozetleri ve takvim bloklari ayni renkleri kullanir. */

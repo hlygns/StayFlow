@@ -226,13 +226,15 @@ public class ReservationService
     }
 
     /// <summary>
-    /// Misafir ayrildi. Planlanandan erken ayrilirsa kalan gecelerin RoomNight satirlari silinir:
-    /// oda o gecelerde tekrar satilabilir. (Ucret iadesi odeme modulunun isi - fiyat degismiyor.)
+    /// Misafir ayrildi. Planlanandan erken ayrilirsa kalan gecelerin RoomNight satirlari silinir
+    /// (oda o gecelerde tekrar satilabilir) ve tutar sadece kalinan gecelere indirilir.
+    /// (Parayi karta geri gonderme odeme modulunun isi; burada sadece dogru tutar tutuluyor.)
     /// </summary>
     public async Task<ReservationDto> CheckOutAsync(Guid id, CancellationToken ct = default)
     {
         var reservation = await _db.Reservations
             .Include(r => r.RoomNights)
+            .Include(r => r.Room).ThenInclude(room => room.RoomType).ThenInclude(rt => rt.SeasonalPrices)
             .FirstOrDefaultAsync(r => r.Id == id, ct)
             ?? throw new NotFoundException("Rezervasyon bulunamadi.");
 
@@ -246,6 +248,7 @@ public class ReservationService
         if (firstFreedNight < reservation.CheckOut)
         {
             _db.RoomNights.RemoveRange(reservation.RoomNights.Where(rn => rn.Date >= firstFreedNight));
+            reservation.TotalPrice = PriceForNightsStayed(reservation, firstFreedNight);
             reservation.CheckOut = firstFreedNight;
         }
 
@@ -254,6 +257,22 @@ public class ReservationService
         await _notifier.ReservationChangedAsync(reservation.HotelId, reservation.Id, ReservationChange.CheckedOut, ct);
 
         return await GetAsync(id, ct);
+    }
+
+    /// <summary>
+    /// Gece basina fiyat saklanmiyor ve tarife rezervasyondan sonra degismis olabilir: bu yuzden misafirin
+    /// odedigi tutar, kalinan gecelerin tarifedeki payi kadar oranlanir. Tarife ayniysa sonuc birebir
+    /// kalinan gecelerin fiyatidir; sezon fiyati farkli gecelerde de dogru pay dusulur.
+    /// </summary>
+    private static decimal PriceForNightsStayed(Reservation reservation, DateOnly newCheckOut)
+    {
+        var roomType = reservation.Room.RoomType;
+        var fullStay = PriceCalculator.CalculateTotal(roomType.BasePrice, roomType.SeasonalPrices, reservation.CheckIn, reservation.CheckOut);
+        var stayed = PriceCalculator.CalculateTotal(roomType.BasePrice, roomType.SeasonalPrices, reservation.CheckIn, newCheckOut);
+
+        return fullStay <= 0
+            ? reservation.TotalPrice
+            : Math.Round(reservation.TotalPrice * stayed / fullStay, 2, MidpointRounding.AwayFromZero);
     }
 
     /// <summary>

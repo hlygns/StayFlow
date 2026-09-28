@@ -62,6 +62,29 @@ public class RealtimeTests : IClassFixture<StayFlowApiFactory>
     }
 
     [Fact]
+    public async Task Bildirim_degisikligi_yapan_sekmenin_kimligini_tasir()
+    {
+        var (hotel, auth) = await _factory.RegisterHotelAsync();
+        var received = new TaskCompletionSource<ReservationChangedMessage>(TaskCreationOptions.RunContinuationsAsynchronously);
+        await using var panel = Connect(auth.AccessToken);
+        panel.On<ReservationChangedMessage>(ReservationsHub.ReservationChangedEvent, m => received.TrySetResult(m));
+        await panel.StartAsync();
+
+        // Panel her istege kendi sekme kimligini ekler; o sekme ayni degisiklik icin ikinci bildirim gostermez
+        hotel.DefaultRequestHeaders.Add(SignalRReservationNotifier.ClientIdHeader, "sekme-1");
+        var roomType = await (await hotel.PostAsJsonAsync("/api/room-types", new { name = "Std", capacity = 2, basePrice = 1000 }))
+            .Content.ReadFromJsonAsync<RoomTypeDto>(TestJson.Options);
+        var room = await (await hotel.PostAsJsonAsync("/api/rooms", new { roomNumber = "101", floor = 1, roomTypeId = roomType!.Id }))
+            .Content.ReadFromJsonAsync<RoomDto>(TestJson.Options);
+        var checkIn = DateOnly.FromDateTime(DateTime.UtcNow).AddDays(20);
+        (await hotel.PostAsJsonAsync("/api/reservations", new { roomId = room!.Id, checkIn, checkOut = checkIn.AddDays(1), guest = new { fullName = "M" } }))
+            .EnsureSuccessStatusCode();
+
+        var message = await received.Task.WaitAsync(TimeSpan.FromSeconds(10));
+        Assert.Equal("sekme-1", message.OriginClientId);
+    }
+
+    [Fact]
     public async Task Tokensiz_baglanti_reddedilir()
     {
         await using var anonymous = Connect(null);

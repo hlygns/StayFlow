@@ -1,3 +1,4 @@
+import { CLIENT_ID, CLIENT_ID_HEADER } from '../realtime/clientId'
 import { getSession, setSession } from './session'
 import type { AuthResponse, ProblemDetails } from './types'
 
@@ -62,7 +63,7 @@ type Method = 'GET' | 'POST' | 'PUT' | 'DELETE'
 
 async function request<T>(method: Method, path: string, body?: unknown, retry = true): Promise<T> {
   const session = getSession()
-  const headers: Record<string, string> = {}
+  const headers: Record<string, string> = { [CLIENT_ID_HEADER]: CLIENT_ID }
   if (body !== undefined) headers['Content-Type'] = 'application/json'
   if (session) headers.Authorization = `Bearer ${session.accessToken}`
 

@@ -122,6 +122,48 @@ public class CheckInOutTests : IDisposable
     }
 
     [Fact]
+    public async Task Erken_check_out_tutari_kalinan_gecelere_indirir()
+    {
+        var (hotel, reservation) = await ConfirmedStayAsync(); // 4 gece x 1000
+        Assert.Equal(4000m, reservation.TotalPrice);
+        SetToday(July10);
+        await Service(hotel).CheckInAsync(reservation.Id);
+        SetToday(July10.AddDays(2));
+
+        var result = await Service(hotel).CheckOutAsync(reservation.Id);
+
+        Assert.Equal(2000m, result.TotalPrice);
+    }
+
+    [Fact]
+    public async Task Erken_check_out_sezon_fiyatli_geceleri_dogru_duser()
+    {
+        var hotel = await _database.SeedHotelAsync("Otel A");
+        await using (var db = _database.CreateContext(hotel.Tenant))
+        {
+            // Ilk iki gece yuksek sezon: 2000 + 2000 + 1000 + 1000 = 6000
+            db.SeasonalPrices.Add(new Domain.Entities.SeasonalPrice
+            {
+                RoomTypeId = hotel.RoomTypeId, StartDate = July10, EndDate = July10.AddDays(1), PricePerNight = 2000m
+            });
+            await db.SaveChangesAsync();
+        }
+        var created = await Service(hotel).CreateAsync(new CreateReservationRequest
+        {
+            RoomId = hotel.RoomIds[0], CheckIn = July10, CheckOut = July10.AddDays(4), Guest = new GuestInput { FullName = "M" }
+        });
+        await Service(hotel).ConfirmAsync(created.Id);
+        Assert.Equal(6000m, created.TotalPrice);
+        SetToday(July10);
+        await Service(hotel).CheckInAsync(created.Id);
+        SetToday(July10.AddDays(2));
+
+        var result = await Service(hotel).CheckOutAsync(created.Id);
+
+        Assert.Equal(4000m, result.TotalPrice); // kalinan iki gece sezon fiyatindan
+    }
+
+    [Fact]
     public async Task Giris_gunu_ayrilan_misafirin_ilk_gecesi_dolu_sayilir()
     {
         var (hotel, reservation) = await ConfirmedStayAsync();
@@ -132,6 +174,7 @@ public class CheckInOutTests : IDisposable
 
         Assert.Equal(July10.AddDays(1), result.CheckOut);
         Assert.Equal(1, result.Nights);
+        Assert.Equal(1000m, result.TotalPrice);
     }
 
     [Fact]

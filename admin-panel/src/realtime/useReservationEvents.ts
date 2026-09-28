@@ -4,13 +4,14 @@ import { useEffect, useState } from 'react'
 import { reservationsApi } from '../api/endpoints'
 import { getSession } from '../api/session'
 import { useToast } from '../components/ui/Toast'
-import { wasChangedLocally } from './localChanges'
+import { isOwnChange } from './clientId'
 
 type ReservationChange = 'Created' | 'Confirmed' | 'CheckedIn' | 'CheckedOut' | 'Cancelled' | 'AutoCancelled'
 
 interface ReservationChangedMessage {
   reservationId: string
   change: ReservationChange
+  originClientId?: string | null
 }
 
 export type LiveStatus = 'connecting' | 'live' | 'offline'
@@ -32,12 +33,12 @@ export function useReservationEvents(): LiveStatus {
       .configureLogging(LogLevel.Warning)
       .build()
 
-    connection.on('reservationChanged', async ({ reservationId, change }: ReservationChangedMessage) => {
+    connection.on('reservationChanged', async ({ reservationId, change, originClientId }: ReservationChangedMessage) => {
       await queryClient.invalidateQueries({ queryKey: ['reservations'] })
       await queryClient.invalidateQueries({ queryKey: ['availability'] })
 
       // Bu sekmede kullanicinin kendi yaptigi degisiklik icin ikinci bir bildirim gosterme
-      if (wasChangedLocally(reservationId)) return
+      if (isOwnChange(originClientId)) return
       const message = await describe(reservationId, change)
       if (message) toast(message, change === 'AutoCancelled' ? 'error' : 'success')
     })
